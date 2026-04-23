@@ -147,7 +147,7 @@ input[type=range]{flex:1;min-width:100px;accent-color:#a78bfa;cursor:pointer}
   <div class="sec">SoundFont (SF2)</div>
   <div class="sf2-row">
     <div class="cg" style="flex:2;min-width:200px">
-      <label>Dateiname im Ordner <code style="color:#a78bfa;font-size:.75rem">/soundfont/</code></label>
+      <label>Dateiname im Ordner <code style="color:#a78bfa;font-size:.75rem">/soundfonts/</code></label>
       <input type="text" id="sf2Filename" value="GM_Roland.sf2" placeholder="GM_Roland.sf2">
     </div>
     <button class="btn-sf2" id="btnLoad" onclick="loadSF2()">&#8659; Laden</button>
@@ -175,7 +175,7 @@ input[type=range]{flex:1;min-width:100px;accent-color:#a78bfa;cursor:pointer}
   </div>
 
   <div class="sf2-hint">
-    <strong>Einrichtung:</strong> Lege deine <code>.sf2</code>-Datei in den Ordner <code>soundfont/</code> relativ zur HTML-Datei.
+    <strong>Einrichtung:</strong> Lege deine <code>.sf2</code>-Datei in den Ordner <code>soundfonts/</code> relativ zur HTML-Datei.
     Starte einen lokalen Webserver (<code>npx serve .</code> oder VS Code Live Server), damit der Browser die Datei laden kann.
     Empfohlen: <code>Roland_SC-88.sf</code>, <code>GeneralUser_GS.sf2</code>, <code>MuseScore_General.sf2</code>
   </div>
@@ -506,7 +506,7 @@ function buildNoteMap(sf2, presetIdx){
 
 async function loadSF2(){
   const fname=$('sf2Filename').value.trim();
-  const path='soundfont/'+fname;
+  const path='soundfonts/'+fname;
   const statusEl=$('sf2Status'), pgBar=$('pgBar'), pgFill=$('pgFill'), btn=$('btnLoad');
   btn.disabled=true;
   statusEl.className='sf2-status busy';
