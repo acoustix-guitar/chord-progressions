@@ -122,12 +122,41 @@ input[type=range]{flex:1;min-width:100px;accent-color:#a78bfa;cursor:pointer}
 .ep-sug:hover{border-color:#a78bfa;color:#c4b5fd;background:#16103a}
 .edit-overlay{position:fixed;inset:0;z-index:998}
 
+/* ── drum machine ── */
+.drum-matrix{display:grid;gap:3px;min-width:620px}
+.drum-row{display:grid;grid-template-columns:90px repeat(16,1fr);gap:3px;align-items:center}
+.drum-label{font-size:.72rem;font-weight:700;color:#9090c0;text-align:right;padding-right:10px;white-space:nowrap;user-select:none}
+.drum-label span{display:block;font-size:.58rem;color:#50508a;font-weight:400}
+.drum-cell{aspect-ratio:1;border-radius:5px;cursor:pointer;border:1px solid #252545;background:#0f0f22;transition:background .1s,border-color .1s;position:relative;min-width:0}
+.drum-cell:hover{border-color:#5050a0;background:#18182e}
+.drum-cell.on{background:#7c3aed;border-color:#a78bfa}
+.drum-cell.on:hover{background:#8b47f5}
+/* beat group tinting */
+.drum-cell.beat-1,.drum-cell.beat-3{background:#13132a}
+.drum-cell.beat-1.on,.drum-cell.beat-3.on{background:#7c3aed}
+/* accent: beat 1 of every group of 4 is slightly brighter */
+.drum-cell.accent{background:#141430}
+.drum-cell.accent.on{background:#9333ea;border-color:#c084fc}
+/* hi-hat row colours */
+.drum-row.row-hh .drum-cell.on{background:#0369a1;border-color:#38bdf8}
+.drum-row.row-hh .drum-cell.accent.on{background:#0284c7;border-color:#7dd3fc}
+.drum-row.row-ohh .drum-cell.on{background:#065f46;border-color:#34d399}
+/* snare */
+.drum-row.row-sn .drum-cell.on{background:#9a3412;border-color:#fb923c}
+.drum-row.row-sn .drum-cell.accent.on{background:#c2410c;border-color:#fed7aa}
+/* beat divider lines */
+.drum-cell.div{border-left:2px solid #2a2a50!important}
+/* active step highlight during playback */
+.drum-cell.playing{box-shadow:0 0 6px #a78bfacc;filter:brightness(1.4)}
+.drum-beat-row{display:grid;grid-template-columns:90px repeat(16,1fr);gap:3px;margin-top:4px;min-width:620px}
+.dbeat{height:4px;border-radius:2px;background:#22224a;transition:background .06s}
+.dbeat.on{background:#a78bfa}
 @media(max-width:480px){.cn{font-size:1.5rem}.chord-box{padding:10px 12px;min-width:66px}h1{font-size:1.5rem}}
 </style>
 </head>
 <body>
 <h1>Chord Progression Generator</h1>
-<p class="subtitle">Pop · Rock · Jazz · soundfontss SF2 · Stimmführung · Akkord anklicken zum Editieren</p>
+<p class="subtitle">Pop · Rock · Jazz · SoundFont SF2 · Stimmführung · Akkord anklicken zum Editieren</p>
 
 <!-- MAIN CONTROLS -->
 <div class="card">
@@ -145,17 +174,16 @@ input[type=range]{flex:1;min-width:100px;accent-color:#a78bfa;cursor:pointer}
   <hr class="divider">
 
   <!-- SF2 -->
-  <div class="sec">soundfonts (SF2)</div>
+  <div class="sec">SoundFont (SF2)</div>
   <div class="sf2-row">
     <div class="cg" style="flex:2;min-width:200px">
-      <label>Dateiname im Ordner <code style="color:#a78bfa;font-size:.75rem">/soundfont/</code></label>
+      <label>Dateiname im Ordner <code style="color:#a78bfa;font-size:.75rem">/soundfonts/</code></label>
       <input type="text" id="sf2Filename" value="GM_Roland.sf2" placeholder="GM_Roland.sf2">
     </div>
     <button class="btn-sf2" id="btnLoad" onclick="loadSF2()">&#8659; Laden</button>
   </div>
   <div class="prog-bar" id="pgBar"><div class="prog-fill" id="pgFill" style="width:0%"></div></div>
-  <div class="sf2-status" id="sf2Status">Kein SoundFont gel
-    aden — Synthesizer wird verwendet.</div>
+  <div class="sf2-status" id="sf2Status">Kein SoundFont geladen — Synthesizer wird verwendet.</div>
 
   <!-- Preset selector (hidden until loaded) -->
   <div id="presetRow" style="display:none;margin-top:10px">
@@ -177,9 +205,9 @@ input[type=range]{flex:1;min-width:100px;accent-color:#a78bfa;cursor:pointer}
   </div>
 
   <div class="sf2-hint">
-    <strong>Einrichtung:</strong> Lege deine <code>.sf2</code>-Datei in den Ordner <code>soundfont/</code> relativ zur HTML-Datei.
+    <strong>Einrichtung:</strong> Lege deine <code>.sf2</code>-Datei in den Ordner <code>soundfonts/</code> relativ zur HTML-Datei.
     Starte einen lokalen Webserver (<code>npx serve .</code> oder VS Code Live Server), damit der Browser die Datei laden kann.
-    Empfohlen: <code>GM_Roland.sf2</code>, <code>GeneralUser_GS.sf2</code>, <code>MuseScore_General.sf2</code>
+    Empfohlen: <code>FluidR3_GM_GS.sf2</code>, <code>GeneralUser_GS.sf2</code>, <code>MuseScore_General.sf2</code>
   </div>
 
   <hr class="divider">
@@ -1516,7 +1544,22 @@ async function playPause(){
 
     scheduleRhythmMeasure(ctx, currentChords[ci], ctx.currentTime, beatDur);
 
-    // Animate beat dots over the measure
+    // Schedule all 16 drum steps across this measure
+    // 16th note duration = beatDur/4 (in 4/4); for 3/4 or 6/8 scale proportionally
+    const sixteenth = beatDur / 4;
+    const stepsPerMeasure = meter === 3 ? 12 : meter === 6 ? 24 : 16;
+    const stepsToSchedule = Math.min(stepsPerMeasure, DRUM_STEPS); // cap at 16
+    for(let ds=0; ds<stepsToSchedule; ds++){
+      const dsTime = ctx.currentTime + ds * sixteenth;
+      scheduleDrumStep(ctx, ds % DRUM_STEPS, dsTime);
+      // Animate drum step indicator with setTimeout
+      const dsMs = ds * sixteenth * 1000;
+      beatTimers.push(setTimeout(()=>{ if(!stopFlag) drumHighlightStep(ds % DRUM_STEPS); }, dsMs));
+    }
+    // Clear drum highlight after measure
+    beatTimers.push(setTimeout(()=>{ if(!stopFlag) drumHighlightStep(-1); }, measureDur*1000 - 10));
+
+    // Animate chord beat dots
     for(let b=0;b<meter*2;b++){
       beatTimers.push(setTimeout(()=>{
         if(!stopFlag) litBeat(ci*2 + (b<2?b:b%2));
@@ -1533,6 +1576,7 @@ function stopPlayback(){
   playBtn.innerHTML='&#9654; Play';
   statusBar.textContent='Gestoppt'; statusBar.className='status';
   lit(-1); litBeat(-1);
+  drumHighlightStep(-1);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1977,6 +2021,248 @@ function addChord(){
 }
 
 
+/* ═══════════════════════════════════════════════════════════════
+   DRUM MACHINE
+   GM Drum map (channel 10, MIDI notes):
+   36 = Bass Drum   38 = Snare   42 = Closed HH   46 = Open HH
+═══════════════════════════════════════════════════════════════ */
+const DRUM_TRACKS=[
+  {id:'bd',  label:'Bass Drum', sub:'(MIDI 36)', note:36, cls:'row-bd'},
+  {id:'sn',  label:'Snare',     sub:'(MIDI 38)', note:38, cls:'row-sn'},
+  {id:'hh',  label:'Hi-Hat',    sub:'(MIDI 42)', note:42, cls:'row-hh'},
+  {id:'ohh', label:'Open HH',   sub:'(MIDI 46)', note:46, cls:'row-ohh'},
+];
+const DRUM_STEPS=16;
+let drumGrid=DRUM_TRACKS.map(()=>new Array(DRUM_STEPS).fill(false));
+let drumCurrentStep=-1;
+let drumSampleCache={};
+
+const DRUM_PRESETS={
+  'Rock':       [[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],
+                 [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+                 [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
+                 [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]],
+  'Pop Beat':   [[1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0],
+                 [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+                 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+                 [0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0]],
+  'Funk':       [[1,0,0,1,0,0,1,0,1,0,0,0,0,1,0,0],
+                 [0,0,0,0,1,0,0,1,0,0,0,0,1,0,0,0],
+                 [1,0,1,1,1,0,1,0,1,0,1,1,1,0,1,0],
+                 [0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1]],
+  'Reggae':     [[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+                 [0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0],
+                 [0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0],
+                 [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0]],
+  'Bossa Nova': [[1,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0],
+                 [0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0],
+                 [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
+                 [0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0]],
+  'Hip-Hop':    [[1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0],
+                 [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1],
+                 [1,0,0,1,0,0,1,0,1,0,0,1,0,0,1,0],
+                 [0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0]],
+  'Jazz Swing': [[1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+                 [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+                 [1,0,1,1,0,1,1,0,1,0,1,1,0,1,1,0],
+                 [0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1]],
+  'Leer':       [new Array(16).fill(false),new Array(16).fill(false),
+                 new Array(16).fill(false),new Array(16).fill(false)],
+};
+
+function buildDrumMatrix(){
+  const matrix=$('drumMatrix'); matrix.innerHTML='';
+  // Header row
+  const hdr=document.createElement('div'); hdr.className='drum-row';
+  hdr.innerHTML='<div class="drum-label"></div>';
+  for(let s=0;s<DRUM_STEPS;s++){
+    const lbl=document.createElement('div');
+    lbl.style.cssText='font-size:.58rem;color:#404070;text-align:center;font-family:monospace;user-select:none';
+    lbl.textContent=s%4===0?(s/4+1):(s%2===0?'·':'');
+    hdr.appendChild(lbl);
+  }
+  matrix.appendChild(hdr);
+
+  DRUM_TRACKS.forEach((tr,ti)=>{
+    const row=document.createElement('div');
+    row.className=`drum-row ${tr.cls}`;
+    const lbl=document.createElement('div'); lbl.className='drum-label';
+    lbl.innerHTML=`${tr.label}<span>${tr.sub}</span>`;
+    row.appendChild(lbl);
+    for(let s=0;s<DRUM_STEPS;s++){
+      const cell=document.createElement('div');
+      let cls='drum-cell';
+      if(s%4===0) cls+=' accent';
+      if(s>0&&s%4===0) cls+=' div';
+      cell.className=cls; cell.id=`dc-${ti}-${s}`;
+      if(drumGrid[ti][s]) cell.classList.add('on');
+      let painting=false, paintVal=false;
+      cell.addEventListener('mousedown',e=>{
+        e.preventDefault(); painting=true;
+        paintVal=!drumGrid[ti][s];
+        drumGrid[ti][s]=paintVal; cell.classList.toggle('on',paintVal);
+      });
+      cell.addEventListener('mouseenter',e=>{
+        if(e.buttons===1){ drumGrid[ti][s]=paintVal; cell.classList.toggle('on',paintVal); }
+      });
+      row.appendChild(cell);
+    }
+    matrix.appendChild(row);
+  });
+
+  // Beat indicator row
+  const beatRow=$('drumBeatRow'); beatRow.innerHTML='<div></div>';
+  for(let s=0;s<DRUM_STEPS;s++){
+    const d=document.createElement('div'); d.className='dbeat'; d.id='db-'+s;
+    beatRow.appendChild(d);
+  }
+}
+
+function buildDrumPresetSelect(){
+  const sel=$('drumPresetSelect');
+  Object.keys(DRUM_PRESETS).forEach(name=>{
+    const o=document.createElement('option'); o.value=name; o.textContent=name; sel.appendChild(o);
+  });
+  sel.value='Rock';
+  loadDrumPreset('Rock');
+  sel.addEventListener('change',()=>loadDrumPreset(sel.value));
+}
+
+function loadDrumPreset(name){
+  const p=DRUM_PRESETS[name]; if(!p) return;
+  drumGrid=p.map(row=>row.map(v=>!!v));
+  DRUM_TRACKS.forEach((_,ti)=>{
+    for(let s=0;s<DRUM_STEPS;s++){
+      const cell=$(`dc-${ti}-${s}`); if(cell) cell.classList.toggle('on',drumGrid[ti][s]);
+    }
+  });
+}
+
+function clearDrums(){
+  drumGrid=DRUM_TRACKS.map(()=>new Array(DRUM_STEPS).fill(false));
+  DRUM_TRACKS.forEach((_,ti)=>{
+    for(let s=0;s<DRUM_STEPS;s++){
+      const c=$(`dc-${ti}-${s}`); if(c) c.classList.remove('on');
+    }
+  });
+}
+
+function randomizeDrums(){
+  const probs=[0.35,0.22,0.55,0.12];
+  DRUM_TRACKS.forEach((tr,ti)=>{
+    for(let s=0;s<DRUM_STEPS;s++){
+      let hit=(s===0&&ti===0)?true:(Math.random()<probs[ti]);
+      if(ti===1&&(s===4||s===12)) hit=true;
+      drumGrid[ti][s]=hit;
+      const c=$(`dc-${ti}-${s}`); if(c) c.classList.toggle('on',hit);
+    }
+  });
+}
+
+function drumHighlightStep(step){
+  if(drumCurrentStep>=0){
+    DRUM_TRACKS.forEach((_,ti)=>{const c=$(`dc-${ti}-${drumCurrentStep}`);if(c)c.classList.remove('playing');});
+    const db=$('db-'+drumCurrentStep); if(db) db.classList.remove('on');
+  }
+  drumCurrentStep=step;
+  if(step>=0){
+    DRUM_TRACKS.forEach((_,ti)=>{const c=$(`dc-${ti}-${step}`);if(c)c.classList.add('playing');});
+    const db=$('db-'+step); if(db) db.classList.add('on');
+  }
+}
+
+// Synth drum fallback
+function playSynthDrum(ctx,note,t){
+  const g=ctx.createGain(); g.connect(ctx.destination);
+  if(note===36){
+    const o=ctx.createOscillator(); o.type='sine';
+    o.frequency.setValueAtTime(120,t); o.frequency.exponentialRampToValueAtTime(40,t+0.12);
+    g.gain.setValueAtTime(1,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.25);
+    o.connect(g); o.start(t); o.stop(t+0.3);
+  } else if(note===38){
+    const buf=ctx.createBuffer(1,Math.floor(ctx.sampleRate*0.15),ctx.sampleRate);
+    const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+    const src=ctx.createBufferSource(); src.buffer=buf;
+    const flt=ctx.createBiquadFilter(); flt.type='bandpass'; flt.frequency.value=2500; flt.Q.value=0.8;
+    g.gain.setValueAtTime(0.7,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.15);
+    src.connect(flt); flt.connect(g); src.start(t);
+    const o2=ctx.createOscillator(); o2.type='triangle'; o2.frequency.value=180;
+    const g2=ctx.createGain(); g2.gain.setValueAtTime(0.3,t); g2.gain.exponentialRampToValueAtTime(0.001,t+0.06);
+    o2.connect(g2); g2.connect(g); o2.start(t); o2.stop(t+0.07);
+  } else if(note===42){
+    const buf=ctx.createBuffer(1,Math.floor(ctx.sampleRate*0.05),ctx.sampleRate);
+    const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+    const src=ctx.createBufferSource(); src.buffer=buf;
+    const flt=ctx.createBiquadFilter(); flt.type='highpass'; flt.frequency.value=8000;
+    g.gain.setValueAtTime(0.4,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.05);
+    src.connect(flt); flt.connect(g); src.start(t);
+  } else if(note===46){
+    const buf=ctx.createBuffer(1,Math.floor(ctx.sampleRate*0.3),ctx.sampleRate);
+    const d=buf.getChannelData(0); for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+    const src=ctx.createBufferSource(); src.buffer=buf;
+    const flt=ctx.createBiquadFilter(); flt.type='highpass'; flt.frequency.value=7000;
+    g.gain.setValueAtTime(0.35,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.3);
+    src.connect(flt); flt.connect(g); src.start(t);
+  }
+}
+
+function getSF2DrumEntry(ctx, midiNote){
+  if(!SF2) return null;
+  const cacheKey='dn'+midiNote;
+  if(drumSampleCache[cacheKey]) return drumSampleCache[cacheKey];
+  // Find drum preset (bank 128)
+  if(!SF2._drumPresetIdx){
+    SF2._drumPresetIdx=-1;
+    for(let i=0;i<SF2.presets.length;i++){
+      if(SF2.presets[i].bank===128){SF2._drumPresetIdx=i;break;}
+    }
+  }
+  if(SF2._drumPresetIdx<0) return null;
+  if(!SF2._drumMap) SF2._drumMap=buildNoteMap(SF2, SF2._drumPresetIdx);
+  const entry=SF2._drumMap[midiNote]; if(!entry) return null;
+  const bkey='dp'+entry.sh.start;
+  if(!drumSampleCache[bkey]){
+    const len=entry.sh.end-entry.sh.start; if(len<=0) return null;
+    const f32=new Float32Array(len);
+    const boff=SF2.smplOff+entry.sh.start*2;
+    for(let i=0;i<len;i++) f32[i]=SF2.dv.getInt16(boff+i*2,true)/32768;
+    const ab=ctx.createBuffer(1,len,entry.sh.sampleRate);
+    ab.copyToChannel(f32,0);
+    drumSampleCache[bkey]={audioBuf:ab, rootKey:entry.rootKey,
+      relSec:Math.max(0.05,Math.min(2,entry.relSec)), sh:entry.sh};
+  }
+  drumSampleCache[cacheKey]=drumSampleCache[bkey];
+  return drumSampleCache[cacheKey];
+}
+
+function playDrumNote(ctx, midiNote, t, vol){
+  if(SF2){
+    const entry=getSF2DrumEntry(ctx, midiNote);
+    if(entry){
+      const mg=ctx.createGain(); mg.gain.value=vol; mg.connect(ctx.destination);
+      const src=ctx.createBufferSource(); src.buffer=entry.audioBuf;
+      src.playbackRate.value=1.0; // drums: no pitch shift
+      const env=ctx.createGain();
+      env.gain.setValueAtTime(1,t);
+      env.gain.exponentialRampToValueAtTime(0.0001, t+entry.relSec);
+      src.connect(env); env.connect(mg);
+      src.start(t); src.stop(t+entry.relSec+0.05);
+      return;
+    }
+  }
+  playSynthDrum(ctx, midiNote, t);
+}
+
+function scheduleDrumStep(ctx, step16, t){
+  if(!$('drumEnabled').checked) return;
+  const vol=(parseInt($('drumVolume').value)/100)*0.9;
+  DRUM_TRACKS.forEach((tr,ti)=>{
+    if(drumGrid[ti][step16]) playDrumNote(ctx, tr.note, t, vol);
+  });
+}
+
+$('drumVolume').addEventListener('input',()=>$('drumVolVal').textContent=$('drumVolume').value+'%');
+
 tempoSlider.addEventListener('input',()=>tempoValEl.textContent=tempoSlider.value+' BPM');
 keySelect.addEventListener('change',()=>isRandom?generateRandom():updateProgression());
 modeSelect.addEventListener('change',()=>{buildProgSelect();updateProgression();});
@@ -1987,6 +2273,9 @@ $('presetSelect').addEventListener('change',()=>{_noteMap=null;sampleCache={};})
 buildRhythmSelect();
 buildProgSelect();
 updateProgression();
+buildDrumMatrix();
+buildDrumPresetSelect();
+
 </script>
 </body>
 </html>
