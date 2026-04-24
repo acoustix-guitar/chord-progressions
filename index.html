@@ -1,0 +1,1921 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chord Progression Generator</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#0d0d1c;color:#e0e0f0;min-height:100vh;padding:18px 16px 40px}
+h1{text-align:center;font-size:1.9rem;font-weight:800;background:linear-gradient(135deg,#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px}
+.subtitle{text-align:center;color:#7070a0;font-size:.82rem;margin-bottom:20px}
+.card{background:#16162a;border:1px solid #252540;border-radius:14px;padding:18px;margin-bottom:14px}
+.controls-row{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.cg{display:flex;flex-direction:column;gap:5px;flex:1;min-width:140px}
+label{font-size:.7rem;font-weight:700;letter-spacing:.09em;color:#a78bfa;text-transform:uppercase}
+select,input[type=text]{background:#0d0d1c;color:#e0e0f0;border:1px solid #353560;border-radius:8px;padding:8px 11px;font-size:.9rem;appearance:none;cursor:pointer;outline:none;transition:border-color .2s;width:100%}
+select:focus,input[type=text]:focus{border-color:#a78bfa}
+.divider{border:none;border-top:1px solid #22224a;margin:14px 0}
+.sec{font-size:.7rem;font-weight:700;letter-spacing:.09em;color:#a78bfa;text-transform:uppercase;margin-bottom:8px}
+
+/* SF2 section */
+.sf2-row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:10px}
+.sf2-path{font-size:.78rem;color:#6060a0;font-family:monospace;background:#0a0a18;border:1px solid #2a2a4a;border-radius:6px;padding:6px 10px;word-break:break-all}
+.sf2-status{font-size:.75rem;padding:7px 12px;border-radius:7px;background:#0a0a18;border:1px solid #252540;margin-top:6px}
+.sf2-status.ok    {border-color:#22c55e55;color:#22c55e;background:#001a06}
+.sf2-status.err   {border-color:#ef444455;color:#ef4444;background:#1a0000}
+.sf2-status.busy  {border-color:#f59e0b55;color:#f59e0b;background:#1a0e00}
+.prog-bar{width:100%;height:4px;background:#1a1a30;border-radius:2px;margin-top:6px;display:none}
+.prog-bar.on{display:block}
+.prog-fill{height:100%;background:linear-gradient(90deg,#a78bfa,#60a5fa);border-radius:2px;transition:width .15s}
+.btn-sf2{padding:8px 16px;font-size:.82rem;font-weight:700;border:none;border-radius:7px;cursor:pointer;background:#7c3aed;color:#fff;transition:all .15s;white-space:nowrap}
+.btn-sf2:hover{background:#6d28d9}
+.btn-sf2:disabled{background:#333355;color:#555577;cursor:not-allowed}
+.sf2-hint{font-size:.69rem;color:#404068;line-height:1.55;background:#0a0a18;border-radius:6px;padding:8px 10px;border:1px solid #1a1a30;margin-top:8px}
+.sf2-hint code{color:#a78bfa;font-family:monospace}
+
+/* ext buttons */
+.ext-wrap{display:flex;flex-wrap:wrap;gap:6px}
+.eb{padding:5px 12px;font-size:.78rem;font-weight:600;cursor:pointer;border:1px solid #353560;border-radius:20px;background:#0d0d1c;color:#8080b0;transition:all .15s}
+.eb.on{background:#1e1060;border-color:#a78bfa;color:#c4b5fd}
+.eb:hover:not(.on){border-color:#6060a0;color:#c0c0e0}
+
+/* main buttons */
+.btn-row{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}
+button{border:none;border-radius:8px;padding:9px 18px;font-size:.88rem;font-weight:700;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px}
+button:active{transform:scale(.97)}
+.bp{background:#22c55e;color:#fff}.bp:hover{background:#16a34a}
+.bs{background:#ef4444;color:#fff}.bs:hover{background:#dc2626}
+.br{background:linear-gradient(135deg,#a78bfa,#60a5fa);color:#fff}.br:hover{filter:brightness(1.15)}
+.bm{background:#f59e0b;color:#1a1100}.bm:hover{background:#d97706}
+
+/* tempo */
+.tempo-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.tl{font-size:.7rem;color:#a78bfa;font-weight:700;letter-spacing:.09em;text-transform:uppercase;white-space:nowrap}
+input[type=range]{flex:1;min-width:100px;accent-color:#a78bfa;cursor:pointer}
+.tv{font-size:.88rem;font-weight:700;color:#e0e0f0;min-width:58px}
+
+/* chord display */
+.prog-display{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;padding:22px 8px 14px;min-height:120px;align-items:center}
+.chord-box{background:#11112a;border:2px solid #303060;border-radius:12px;padding:12px 18px;min-width:82px;text-align:center;transition:all .18s}
+.cn{font-size:1.85rem;font-weight:800;color:#e0e0ff;line-height:1}
+.ce{font-size:.82rem;font-weight:700;color:#a78bfa;min-height:15px;margin-top:2px}
+.cr{font-size:.62rem;color:#50508a;margin-top:5px;letter-spacing:.04em}
+.ci{font-size:.58rem;color:#363670;margin-top:3px;font-family:monospace}
+.chord-box.lit{border-color:#a78bfa;background:#1e1a4a;box-shadow:0 0 18px #a78bfa44}
+.chord-box.lit .cn{color:#d0c0ff}
+.chord-box.lit .ce{color:#e0d0ff}
+/* inversion badge */
+.inv{font-size:.58rem;color:#70709a;margin-top:2px;font-style:italic}
+
+.pn{text-align:center;font-size:.78rem;color:#7070a0;margin-bottom:4px;font-style:italic;min-height:18px}
+.beat-bar{display:flex;justify-content:center;gap:5px;margin-top:10px;padding-bottom:4px}
+.bd{width:8px;height:8px;border-radius:50%;background:#22224a;transition:background .08s}
+.bd.on{background:#a78bfa}
+
+.info-box{background:#0e0e22;border-left:3px solid #a78bfa;border-radius:0 8px 8px 0;padding:10px 14px;font-size:.78rem;color:#8888b8;line-height:1.65}
+.info-box strong{color:#c0b0ff}
+.status{text-align:center;font-size:.78rem;color:#50508a;min-height:20px;margin-top:8px}
+.status.play{color:#22c55e}
+.status.warn{color:#f59e0b}
+.tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.68rem;font-weight:700;margin-right:4px}
+.tag.pop{background:#1a2a10;color:#86efac}
+.tag.rock{background:#2a1010;color:#fca5a5}
+.tag.jazz{background:#0d2a40;color:#7dd3fc}
+.tag.rnd{background:#2a1a40;color:#c4b5fd}
+
+/* ── chord editing ── */
+.chord-box{cursor:pointer;position:relative}
+.chord-box:hover{border-color:#5050a0;background:#14143a}
+.chord-box:hover .edit-hint{opacity:1}
+.edit-hint{position:absolute;top:4px;right:6px;font-size:.55rem;color:#5050a0;opacity:0;transition:opacity .15s;pointer-events:none;letter-spacing:.03em}
+.chord-box.editing{border-color:#a78bfa;background:#1a1840;box-shadow:0 0 0 3px #a78bfa33}
+.chord-box.lit .edit-hint{display:none}
+
+/* delete button on each chord */
+.del-btn{position:absolute;top:-8px;right:-8px;width:20px;height:20px;border-radius:50%;background:#ef4444;color:#fff;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .15s;border:none;padding:0;font-weight:700;z-index:10}
+.chord-box:hover .del-btn{opacity:1}
+
+/* add chord button */
+.add-chord-btn{background:transparent;border:2px dashed #303060;border-radius:12px;padding:12px 14px;min-width:52px;min-height:80px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .18s;color:#404080;font-size:1.4rem;font-weight:300}
+.add-chord-btn:hover{border-color:#a78bfa;color:#a78bfa;background:#12103a}
+.add-chord-btn:active{transform:scale(.96)}
+
+/* edit popover */
+.edit-popover{position:fixed;z-index:999;background:#1a1838;border:1.5px solid #a78bfa;border-radius:14px;padding:16px;width:360px;box-shadow:0 8px 40px #00000088;max-height:80vh;overflow-y:auto}
+.ep-group-label{font-size:.62rem;font-weight:700;letter-spacing:.09em;color:#6060a0;text-transform:uppercase;margin:8px 0 4px}
+.ep-arrow{position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:8px solid #a78bfa}
+.ep-title{font-size:.68rem;font-weight:700;letter-spacing:.09em;color:#a78bfa;text-transform:uppercase;margin-bottom:10px}
+.ep-input{width:100%;background:#0d0d1c;color:#e0e0f0;border:1.5px solid #353560;border-radius:8px;padding:10px 12px;font-size:1.4rem;font-weight:700;outline:none;transition:border-color .2s;letter-spacing:.05em;font-family:'Segoe UI',Arial,sans-serif}
+.ep-input:focus{border-color:#a78bfa}
+.ep-input.err{border-color:#ef4444}
+.ep-hint{font-size:.68rem;color:#50508a;margin-top:6px;line-height:1.5}
+.ep-hint code{color:#a78bfa;font-family:monospace}
+.ep-preview{margin-top:8px;padding:8px 12px;background:#0d0d1c;border-radius:8px;font-size:.8rem;color:#8888c0;min-height:28px;border:1px solid #22224a}
+.ep-buttons{display:flex;gap:8px;margin-top:10px}
+.ep-ok{flex:1;padding:8px;background:#7c3aed;color:#fff;border:none;border-radius:7px;font-size:.85rem;font-weight:700;cursor:pointer}
+.ep-ok:hover{background:#6d28d9}
+.ep-cancel{padding:8px 14px;background:#1a1a30;color:#8080b0;border:1px solid #353560;border-radius:7px;font-size:.85rem;font-weight:600;cursor:pointer}
+.ep-cancel:hover{color:#e0e0f0;border-color:#6060a0}
+.ep-suggestions{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.ep-sug{padding:3px 9px;font-size:.72rem;font-weight:600;border:1px solid #353560;border-radius:14px;background:#0d0d1c;color:#8080b0;cursor:pointer;transition:all .12s}
+.ep-sug:hover{border-color:#a78bfa;color:#c4b5fd;background:#16103a}
+.edit-overlay{position:fixed;inset:0;z-index:998}
+
+@media(max-width:480px){.cn{font-size:1.5rem}.chord-box{padding:10px 12px;min-width:66px}h1{font-size:1.5rem}}
+</style>
+</head>
+<body>
+<h1>Chord Progression Generator</h1>
+<p class="subtitle">Pop · Rock · Jazz · SoundFont SF2 · Stimmführung · Akkord anklicken zum Editieren</p>
+
+<!-- MAIN CONTROLS -->
+<div class="card">
+  <div class="controls-row">
+    <div class="cg"><label>Tonart</label><select id="keySelect"></select></div>
+    <div class="cg"><label>Modus</label>
+      <select id="modeSelect"><option value="major">Dur (Major)</option><option value="minor">Moll (Minor)</option></select>
+    </div>
+    <div class="cg"><label>Stil</label>
+      <select id="styleSelect"><option value="pop">Pop / Rock</option><option value="jazz">Jazz / Neo-Soul</option></select>
+    </div>
+    <div class="cg"><label>Akkordfolge</label><select id="progSelect"></select></div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- SF2 -->
+  <div class="sec">SoundFont (SF2)</div>
+  <div class="sf2-row">
+    <div class="cg" style="flex:2;min-width:200px">
+      <label>Dateiname im Ordner <code style="color:#a78bfa;font-size:.75rem">/soundfont/</code></label>
+      <input type="text" id="sf2Filename" value="GM_Roland.sf2" placeholder="GM_Roland.sf2">
+    </div>
+    <button class="btn-sf2" id="btnLoad" onclick="loadSF2()">&#8659; Laden</button>
+  </div>
+  <div class="prog-bar" id="pgBar"><div class="prog-fill" id="pgFill" style="width:0%"></div></div>
+  <div class="sf2-status" id="sf2Status">Kein SoundFont geladen — Synthesizer wird verwendet.</div>
+
+  <!-- Preset selector (hidden until loaded) -->
+  <div id="presetRow" style="display:none;margin-top:10px">
+    <div class="controls-row">
+      <div class="cg">
+        <label>Preset / Instrument</label>
+        <select id="presetSelect"></select>
+      </div>
+      <div class="cg" style="max-width:140px">
+        <label>Oktavlage</label>
+        <select id="octaveSelect">
+          <option value="-2">-2 Oktaven</option>
+          <option value="-1">-1 Oktave</option>
+          <option value="0" selected>Normal</option>
+          <option value="1">+1 Oktave</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="sf2-hint">
+    <strong>Einrichtung:</strong> Lege deine <code>.sf2</code>-Datei in den Ordner <code>soundfont/</code> relativ zur HTML-Datei.
+    Starte einen lokalen Webserver (<code>npx serve .</code> oder VS Code Live Server), damit der Browser die Datei laden kann.
+    Empfohlen: <code>GM_Roland.sf2</code>, <code>GeneralUser_GS.sf2</code>, <code>MuseScore_General.sf2</code>
+  </div>
+
+  <hr class="divider">
+
+  <!-- Erweiterungen -->
+  <div class="sec">Akkord-Erweiterungen</div>
+  <div class="ext-wrap" id="extWrap">
+    <button class="eb" data-e="maj7"  onclick="toggleExt('maj7')">maj7</button>
+    <button class="eb" data-e="m7"    onclick="toggleExt('m7')">m7</button>
+    <button class="eb" data-e="dom7"  onclick="toggleExt('dom7')">7 (Dom.)</button>
+    <button class="eb" data-e="add9"  onclick="toggleExt('add9')">add9</button>
+    <button class="eb" data-e="9"     onclick="toggleExt('9')">9</button>
+    <button class="eb" data-e="sus2"  onclick="toggleExt('sus2')">sus2</button>
+    <button class="eb" data-e="sus4"  onclick="toggleExt('sus4')">sus4</button>
+    <button class="eb" data-e="6"     onclick="toggleExt('6')">6</button>
+    <button class="eb" data-e="m9"    onclick="toggleExt('m9')">m9</button>
+    <button class="eb" data-e="maj9"  onclick="toggleExt('maj9')">maj9</button>
+    <button class="eb" data-e="11"    onclick="toggleExt('11')">11</button>
+    <button class="eb" data-e="13"    onclick="toggleExt('13')">13</button>
+  </div>
+  <div style="font-size:.68rem;color:#40406a;margin-top:6px">Erweiterungen werden kontextuell auf kompatible Akkorde angewendet.</div>
+
+  <hr class="divider">
+  <div class="controls-row" style="margin-bottom:10px">
+    <div class="cg">
+      <label>Rhythmusmuster</label>
+      <select id="rhythmSelect"></select>
+    </div>
+    <div class="cg" style="max-width:130px">
+      <label>Taktart</label>
+      <select id="meterSelect">
+        <option value="4">4/4</option>
+        <option value="3">3/4 (Walzer)</option>
+        <option value="6">6/8</option>
+      </select>
+    </div>
+  </div>
+  <div class="tempo-row">
+    <span class="tl">Tempo</span>
+    <input type="range" id="tempoSlider" min="40" max="220" value="100" step="1">
+    <span class="tv" id="tempoVal">100 BPM</span>
+  </div>
+
+  <div class="btn-row">
+    <button class="bp" id="playBtn" onclick="playPause()">&#9654; Play</button>
+    <button class="bs" onclick="stopPlayback()">&#9646; Stop</button>
+    <button class="br" onclick="generateRandom()">&#10227; Random</button>
+    <button class="bm" onclick="exportMidi()">&#8681; Export MIDI</button>
+  </div>
+  <div class="status" id="statusBar">Bereit</div>
+</div>
+
+<!-- CHORD DISPLAY -->
+<div class="card">
+  <div class="pn" id="progName">—</div>
+  <div class="prog-display" id="progDisplay"></div>
+  <div class="beat-bar" id="beatBar"></div>
+</div>
+
+<!-- INFO -->
+<div class="card">
+  <div class="info-box" id="infoBox">Wähle eine Akkordfolge oder klicke auf <strong>Random</strong>.</div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   MUSIC DATA
+═══════════════════════════════════════════════════════════════ */
+const KEYS=['C','C#/Db','D','D#/Eb','E','F','F#/Gb','G','G#/Ab','A','A#/Bb','B'];
+const KS  =['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const MjIV=[0,2,4,5,7,9,11], MnIV=[0,2,3,5,7,8,10];
+const MjQ =['','m','m','','','m','dim'], MnQ=['m','dim','','m','m','',''];
+const RMaj=['I','ii','iii','IV','V','vi','vii°'], RMin=['i','ii°','III','iv','v','VI','VII'];
+
+const EXT={
+  maj7:{s:[0,4,7,11],l:'maj7',c:['']},
+  m7:  {s:[0,3,7,10],l:'m7',  c:['m']},
+  dom7:{s:[0,4,7,10],l:'7',   c:['','m']},
+  add9:{s:[0,4,7,14],l:'add9',c:['','m']},
+  '9': {s:[0,4,7,10,14],l:'9',c:['']},
+  sus2:{s:[0,2,7],   l:'sus2',c:['','m']},
+  sus4:{s:[0,5,7],   l:'sus4',c:['','m']},
+  '6': {s:[0,4,7,9], l:'6',   c:['']},
+  m9:  {s:[0,3,7,10,14],l:'m9',c:['m']},
+  maj9:{s:[0,4,7,11,14],l:'maj9',c:['']},
+  '11':{s:[0,4,7,10,14,17],l:'11',c:['']},
+  '13':{s:[0,4,7,10,14,17,21],l:'13',c:['']},
+};
+const BASE_S={'':[ 0,4,7],'m':[0,3,7],'dim':[0,3,6]};
+const IVD=s=>({0:'R',1:'b9',2:'2',3:'b3',4:'3',5:'4',6:'b5',7:'5',8:'#5',9:'6',10:'b7',11:'7',13:'#9',14:'9',17:'11',21:'13'})[s]||'?';
+
+const PROGS_POP_MAJ=[
+  {n:'I – V – vi – IV',d:[0,4,5,3],g:'pop',i:'Beliebteste Akkordfolge der Popmusik.'},
+  {n:'I – IV – V – I',d:[0,3,4,0],g:'rock',i:'Blues/Rock-Fundament.'},
+  {n:'I – vi – IV – V (Doo-Wop)',d:[0,5,3,4],g:'pop',i:'50er-Sound. Warm und nostalgisch.'},
+  {n:'I – V – IV – I',d:[0,4,3,0],g:'rock',i:'Kraftvoller Rocksound.'},
+  {n:'I – IV – vi – V',d:[0,3,5,4],g:'pop',i:'Heller Indie-Pop Klang.'},
+  {n:'I – iii – IV – V',d:[0,2,3,4],g:'pop',i:'Aufsteigende Spannung, treibend.'},
+  {n:'I – ii – V – I',d:[0,1,4,0],g:'pop',i:'Jazz-Turnaround, warm aufgelöst.'},
+  {n:'I – vi – ii – V',d:[0,5,1,4],g:'pop',i:'Klassischer Jazz-Groove.'},
+  {n:'I – IV – I – V (Shuffle)',d:[0,3,0,4],g:'rock',i:'Country und Rockabilly Shuffle.'},
+  {n:'I – bVII – IV – I',d:[0,'bVII',3,0],g:'rock',i:'Mixolydisch — Classic Rock.'},
+  {n:'I – IV – V – IV',d:[0,3,4,3],g:'rock',i:'Endlose Schleife ohne Auflösung.'},
+  {n:'I – V – vi – iii – IV',d:[0,4,5,2,3],g:'pop',i:'5-Akkord Progression. Ausgewogen.'},
+  {n:'I – iii – vi – IV',d:[0,2,5,3],g:'pop',i:'Melancholisch aber nicht düster.'},
+  {n:'I – IV – bVII – IV',d:[0,3,'bVII',3],g:'rock',i:'Pendel-Riff, mixolydisch.'},
+  {n:'I – II – IV – I (Lydisch)',d:[0,'II',3,0],g:'pop',i:'Schwebend, lydisch gefärbt.'},
+];
+const PROGS_POP_MIN=[
+  {n:'i – VII – VI – VII',d:[0,6,5,6],g:'pop',i:'Pop-Balladen und Rocksongs.'},
+  {n:'i – iv – VII – III',d:[0,3,6,2],g:'rock',i:'Episch und dramatisch.'},
+  {n:'i – VI – III – VII',d:[0,5,2,6],g:'rock',i:'Emotional — in unzähligen Rocksongs.'},
+  {n:'i – iv – v – i',d:[0,3,4,0],g:'rock',i:'Klassische Moll-Kadenz.'},
+  {n:'i – VII – VI – III (Andal.)',d:[0,6,5,2],g:'rock',i:'Andalusische Kadenz. Filmreif.'},
+];
+const PROGS_JAZZ_MAJ=[
+  {n:'ii7 – V7 – Imaj7',d:[1,4,0],eo:['m7','dom7','maj7'],g:'jazz',i:'Die wichtigste Jazz-Kadenz.'},
+  {n:'Imaj7 – IVmaj7 – V7 – Imaj7',d:[0,3,4,0],eo:['maj7','maj7','dom7','maj7'],g:'jazz',i:'Klassischer Jazz-Standard.'},
+  {n:'Imaj9 – vi9 – ii9 – V13',d:[0,5,1,4],eo:['maj9','m9','m9','13'],g:'jazz',i:'Neo-Soul mit vollen Erweiterungen.'},
+  {n:'I6 – IV6 – ii7 – V7',d:[0,3,1,4],eo:['6','6','m7','dom7'],g:'jazz',i:'Swingender Big-Band-Sound.'},
+  {n:'Imaj7 – iii7 – vi7 – ii7 – V7',d:[0,2,5,1,4],eo:['maj7','m7','m7','m7','dom7'],g:'jazz',i:'Vollständige diatonische Jazz-Bewegung.'},
+  {n:'Imaj7 – IV9 – iii7 – VI7',d:[0,3,2,5],eo:['maj7','9','m7','dom7'],g:'jazz',i:'Neo-Soul / R&B.'},
+  {n:'ii7 – V7 – iii7 – VI7',d:[1,4,2,5],eo:['m7','dom7','m7','dom7'],g:'jazz',i:'Rhythm Changes.'},
+  {n:'I6/9 – IVsus4 – iii7 – VI7',d:[0,3,2,5],eo:['maj9','sus4','m9','dom7'],g:'jazz',i:'Modern Jazz / Fusion.'},
+  {n:'Imaj7 – bIII7 – bVI7 – bII7',d:[0,'bIII','bVI','bII'],eo:['maj7','dom7','dom7','dom7'],g:'jazz',i:'Bebop-Substitutionen.'},
+  {n:'I – IV – iii – VI7 – ii – V7',d:[0,3,2,5,1,4],eo:['maj7','maj7','m7','dom7','m7','dom7'],g:'jazz',i:'Vollständiger Turnaround.'},
+];
+const PROGS_JAZZ_MIN=[
+  {n:'im7 – iv7 – VII7 – IIImaj7',d:[0,3,6,2],eo:['m7','m7','dom7','maj7'],g:'jazz',i:'Moll-Turnaround.'},
+  {n:'im9 – VI9 – III9 – VII7',d:[0,5,2,6],eo:['m9','9','9','dom7'],g:'jazz',i:'Neo-Soul Moll-Progression.'},
+  {n:'im7 – bII7 – imaj7',d:[0,'bII',0],eo:['m7','dom7','maj7'],g:'jazz',i:'Phrygisch. Spanisch-exotisch.'},
+  {n:'im9 – iv9 – VII9 – IIImaj9',d:[0,3,6,2],eo:['m9','m9','9','maj9'],g:'jazz',i:'Volle Erweiterungen. Cineastisch.'},
+  {n:'im7 – VI7 – iim7b5 – V7',d:[0,5,1,4],eo:['m7','dom7','m7','dom7'],g:'jazz',i:'Harmonische Moll-Kadenz.'},
+];
+
+/* ═══════════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════════ */
+let activeExts=new Set();
+let currentChords=[];   // array of {displayName, dispExt, roman, noteIdx, semis, baseQ, extLabel, ivDesc, voicedMidi, invLabel}
+let audioCtx=null, isPlaying=false, stopFlag=false, isRandom=false, beatDots=[];
+let SF2=null;           // parsed SF2 object
+let sampleCache={};     // midiNote -> {audioBuf, rootKey, releaseSec}
+
+const $=id=>document.getElementById(id);
+
+/* DOM refs */
+const keySelect=$('keySelect'),modeSelect=$('modeSelect'),styleSelect=$('styleSelect'),
+      progSelect=$('progSelect'),tempoSlider=$('tempoSlider'),tempoValEl=$('tempoVal'),
+      progDisplay=$('progDisplay'),progNameEl=$('progName'),beatBarEl=$('beatBar'),
+      statusBar=$('statusBar'),infoBox=$('infoBox'),playBtn=$('playBtn');
+
+KEYS.forEach((k,i)=>{const o=document.createElement('option');o.value=i;o.textContent=k;keySelect.appendChild(o);});
+
+/* ═══════════════════════════════════════════════════════════════
+   SF2 PARSER  — robust, handles FluidR3_GM_GS and similar fonts
+═══════════════════════════════════════════════════════════════ */
+function parseSF2(buffer){
+  const dv=new DataView(buffer);
+  const u8=new Uint8Array(buffer);
+
+  const rcc=(o)=>String.fromCharCode(u8[o],u8[o+1],u8[o+2],u8[o+3]);
+  const ru32=(o)=>dv.getUint32(o,true);
+  const ru16=(o)=>dv.getUint16(o,true);
+  const ri16=(o)=>dv.getInt16(o,true);
+  const rstr=(o,l)=>{ let s=''; for(let i=0;i<l&&u8[o+i];i++) s+=String.fromCharCode(u8[o+i]); return s.trim(); };
+
+  if(rcc(0)!=='RIFF') throw new Error('Kein RIFF');
+  if(rcc(8)!=='sfbk') throw new Error('Kein SF2 (sfbk)');
+
+  /* Walk top-level LISTs */
+  const topChunks={};
+  let p=12, fsize=ru32(4)+8;
+  while(p+8<=fsize){
+    const id=rcc(p), sz=ru32(p+4);
+    if(id==='LIST'){ const lt=rcc(p+8); topChunks[lt]={off:p+12, sz:sz-4}; }
+    p+=8+sz+(sz&1);
+  }
+  if(!topChunks.pdta) throw new Error('pdta fehlt');
+  if(!topChunks.sdta) throw new Error('sdta fehlt');
+
+  /* sdta → smpl */
+  let smplOff=0, smplSz=0;
+  { let sp=topChunks.sdta.off;
+    while(sp+8<=topChunks.sdta.off+topChunks.sdta.sz){
+      const id=rcc(sp),sz=ru32(sp+4);
+      if(id==='smpl'){smplOff=sp+8;smplSz=sz;break;}
+      sp+=8+sz+(sz&1);
+    }
+  }
+  if(!smplSz) throw new Error('smpl nicht gefunden');
+
+  /* pdta sub-chunks */
+  const pdta={};
+  { let sp=topChunks.pdta.off;
+    while(sp+8<=topChunks.pdta.off+topChunks.pdta.sz){
+      const id=rcc(sp),sz=ru32(sp+4);
+      pdta[id]={off:sp+8,sz};
+      sp+=8+sz+(sz&1);
+    }
+  }
+
+  /* PHDR 38 bytes each */
+  const presets=[];
+  if(pdta.phdr){
+    const n=Math.floor(pdta.phdr.sz/38);
+    for(let i=0;i<n;i++){
+      const b=pdta.phdr.off+i*38;
+      presets.push({name:rstr(b,20),preset:ru16(b+20),bank:ru16(b+22),pbagIdx:ru16(b+24)});
+    }
+  }
+
+  /* PBAG 4 bytes each */
+  const pbags=[];
+  if(pdta.pbag){
+    for(let i=0;i<pdta.pbag.sz/4;i++){
+      const b=pdta.pbag.off+i*4;
+      pbags.push({genIdx:ru16(b),modIdx:ru16(b+2)});
+    }
+  }
+
+  /* PGEN 4 bytes each */
+  const pgens=[];
+  if(pdta.pgen){
+    for(let i=0;i<pdta.pgen.sz/4;i++){
+      const b=pdta.pgen.off+i*4;
+      pgens.push({oper:ru16(b),amount:ri16(b+2),amountU:ru16(b+2)});
+    }
+  }
+
+  /* INST 22 bytes each */
+  const insts=[];
+  if(pdta.inst){
+    for(let i=0;i<pdta.inst.sz/22;i++){
+      const b=pdta.inst.off+i*22;
+      insts.push({name:rstr(b,20),ibagIdx:ru16(b+20)});
+    }
+  }
+
+  /* IBAG 4 bytes each */
+  const ibags=[];
+  if(pdta.ibag){
+    for(let i=0;i<pdta.ibag.sz/4;i++){
+      const b=pdta.ibag.off+i*4;
+      ibags.push({genIdx:ru16(b),modIdx:ru16(b+2)});
+    }
+  }
+
+  /* IGEN 4 bytes each */
+  const igens=[];
+  if(pdta.igen){
+    for(let i=0;i<pdta.igen.sz/4;i++){
+      const b=pdta.igen.off+i*4;
+      igens.push({oper:ru16(b),amount:ri16(b+2),amountU:ru16(b+2)});
+    }
+  }
+
+  /* SHDR 46 bytes each */
+  const shdrs=[];
+  if(pdta.shdr){
+    for(let i=0;i<pdta.shdr.sz/46;i++){
+      const b=pdta.shdr.off+i*46;
+      shdrs.push({
+        name:rstr(b,20),
+        start:ru32(b+20),end:ru32(b+24),
+        loopStart:ru32(b+28),loopEnd:ru32(b+32),
+        sampleRate:ru32(b+36),
+        originalPitch:u8[b+40],
+        pitchCorrection:dv.getInt8(b+41),
+        type:ru16(b+44)
+      });
+    }
+  }
+
+  console.log(`SF2 parsed: ${presets.length} presets, ${shdrs.length} samples, ${insts.length} instruments`);
+  return {presets,pbags,pgens,insts,ibags,igens,shdrs,smplOff,smplSz,dv,u8};
+}
+
+/* Build note→sample mapping for one preset.
+   Returns map[midiNote] = {shdr, rootKey, releaseSec} */
+function buildNoteMap(sf2, presetIdx){
+  const preset=sf2.presets[presetIdx];
+  if(!preset) return {};
+
+  const nextPreset=sf2.presets[presetIdx+1];  // may be the terminal EOP record
+  const pbagEnd  = nextPreset ? nextPreset.pbagIdx : sf2.pbags.length;
+  const map={};
+
+  for(let pi=preset.pbagIdx; pi<pbagEnd && pi<sf2.pbags.length; pi++){
+    /* Collect pgens for this preset zone */
+    const pgStart=sf2.pbags[pi].genIdx;
+    const pgEnd  =(pi+1<sf2.pbags.length) ? sf2.pbags[pi+1].genIdx : sf2.pgens.length;
+
+    let instIdx=-1;
+    for(let gi=pgStart;gi<pgEnd;gi++){
+      if(sf2.pgens[gi].oper===41){ instIdx=sf2.pgens[gi].amountU; break; }
+    }
+    if(instIdx<0||instIdx>=sf2.insts.length) continue;
+
+    const inst    =sf2.insts[instIdx];
+    const nextInst=sf2.insts[instIdx+1]; // may be terminal
+    if(!inst) continue;
+
+    const ibagEnd=(nextInst && nextInst.ibagIdx!==undefined)
+                  ? nextInst.ibagIdx
+                  : sf2.ibags.length;
+
+    for(let ii=inst.ibagIdx; ii<ibagEnd && ii<sf2.ibags.length; ii++){
+      const igStart=sf2.ibags[ii].genIdx;
+      const igEnd  =(ii+1<sf2.ibags.length) ? sf2.ibags[ii+1].genIdx : sf2.igens.length;
+
+      /* Defaults per SF2 spec */
+      let keyLo=0, keyHi=127, sampleRef=-1, overridePitch=-1;
+      let volRelease=-12000; // timecents → very fast default
+
+      for(let gi=igStart;gi<igEnd;gi++){
+        const g=sf2.igens[gi];
+        switch(g.oper){
+          case 43: keyLo=g.amountU&0xFF; keyHi=(g.amountU>>8)&0xFF; break;
+          case 53: sampleRef=g.amountU; break;
+          case 58: overridePitch=g.amount; break;
+          case 38: volRelease=g.amount; break;
+        }
+      }
+
+      if(sampleRef<0||sampleRef>=sf2.shdrs.length) continue;
+      const sh=sf2.shdrs[sampleRef];
+      if(!sh||sh.type===0||sh.end<=sh.start) continue; // EOS or empty
+
+      const rootKey=(overridePitch>=0&&overridePitch<=127) ? overridePitch : sh.originalPitch;
+      const relSec =Math.min(4, Math.max(0.05, Math.pow(2, volRelease/1200)));
+
+      for(let k=keyLo;k<=Math.min(keyHi,127);k++){
+        if(!map[k]) map[k]={sh, rootKey, relSec};
+      }
+    }
+  }
+  return map;
+}
+
+async function loadSF2(){
+  const fname=$('sf2Filename').value.trim();
+  const path='soundfont/'+fname;
+  const statusEl=$('sf2Status'), pgBar=$('pgBar'), pgFill=$('pgFill'), btn=$('btnLoad');
+  btn.disabled=true;
+  statusEl.className='sf2-status busy';
+  statusEl.textContent='Lade '+path+' …';
+  pgBar.classList.add('on'); pgFill.style.width='5%';
+
+  try{
+    const resp=await fetch(path);
+    if(!resp.ok) throw new Error(`HTTP ${resp.status} — Datei nicht gefunden: ${path}`);
+
+    const total=parseInt(resp.headers.get('content-length')||'0');
+    const reader=resp.body.getReader();
+    const chunks=[];
+    let loaded=0;
+    while(true){
+      const{done,value}=await reader.read();
+      if(done) break;
+      chunks.push(value); loaded+=value.length;
+      if(total>0) pgFill.style.width=Math.min(90,Math.round(loaded/total*88))+'%';
+    }
+
+    statusEl.textContent='Verarbeite SF2 ('+Math.round(loaded/1048576)+'MB)…';
+    pgFill.style.width='93%';
+
+    // Assemble ArrayBuffer
+    const ab=new ArrayBuffer(loaded);
+    const out=new Uint8Array(ab); let off=0;
+    chunks.forEach(c=>{out.set(c,off);off+=c.length;});
+
+    SF2=parseSF2(ab);
+    sampleCache={};
+
+    pgFill.style.width='100%';
+    setTimeout(()=>{pgBar.classList.remove('on');pgFill.style.width='0%';},600);
+
+    // Populate preset selector (bank 0 only, skip drums bank 128)
+    const sel=$('presetSelect');
+    sel.innerHTML='';
+    SF2.presets.forEach((p,i)=>{
+      if(p.bank===128) return; // skip GM drums
+      if(i===SF2.presets.length-1&&p.name==='EOP') return;
+      const o=document.createElement('option');
+      o.value=i;
+      o.textContent=`${p.bank}:${String(p.preset).padStart(3,'0')} — ${p.name}`;
+      sel.appendChild(o);
+    });
+    $('presetRow').style.display='block';
+
+    statusEl.className='sf2-status ok';
+    statusEl.textContent=`✓ ${fname} geladen — ${SF2.presets.length-1} Presets, ${SF2.shdrs.length} Samples`;
+    statusBar.textContent='SF2 bereit'; statusBar.className='status play';
+    setTimeout(()=>{statusBar.textContent='Bereit';statusBar.className='status';},2000);
+
+  }catch(err){
+    pgBar.classList.remove('on');
+    statusEl.className='sf2-status err';
+    statusEl.textContent='Fehler: '+err.message;
+    console.error('[SF2]',err);
+  }
+  btn.disabled=false;
+}
+
+/* Get AudioBuffer for one MIDI note from the current preset */
+let _noteMap=null, _noteMapPreset=-1;
+
+function getNoteEntry(ctx, midiNote){
+  if(!SF2) return null;
+  const presetIdx=parseInt($('presetSelect').value||'0');
+  if(_noteMapPreset!==presetIdx||!_noteMap){
+    _noteMap=buildNoteMap(SF2,presetIdx);
+    _noteMapPreset=presetIdx;
+    sampleCache={};
+  }
+
+  let entry=_noteMap[midiNote];
+  // Nearest-neighbour fallback (±12 semitones)
+  if(!entry){
+    for(let d=1;d<=12;d++){
+      if(_noteMap[midiNote+d]){entry=_noteMap[midiNote+d];break;}
+      if(_noteMap[midiNote-d]){entry=_noteMap[midiNote-d];break;}
+    }
+  }
+  if(!entry) return null;
+
+  const key=`${_noteMapPreset}_${entry.sh.start}`;
+  if(!sampleCache[key]){
+    const len=entry.sh.end-entry.sh.start;
+    if(len<=0) return null;
+    const f32=new Float32Array(len);
+    const boff=SF2.smplOff+entry.sh.start*2;
+    for(let i=0;i<len;i++) f32[i]=SF2.dv.getInt16(boff+i*2,true)/32768;
+    const ab=ctx.createBuffer(1,len,entry.sh.sampleRate);
+    ab.copyToChannel(f32,0);
+    sampleCache[key]={audioBuf:ab,rootKey:entry.rootKey,relSec:entry.relSec};
+  }
+  return sampleCache[key];
+}
+
+function playSF2Note(ctx, midiNote, startTime, duration, masterGain){
+  const octShift=parseInt($('octaveSelect').value||'0');
+  const note=Math.max(0,Math.min(127,midiNote+octShift*12));
+  const entry=getNoteEntry(ctx,note);
+  if(!entry) return;
+
+  const src=ctx.createBufferSource();
+  src.buffer=entry.audioBuf;
+  src.playbackRate.value=Math.pow(2,(note-entry.rootKey)/12);
+
+  const env=ctx.createGain();
+  env.gain.setValueAtTime(1,startTime);
+  env.gain.setValueAtTime(1,startTime+duration);
+  env.gain.linearRampToValueAtTime(0,startTime+duration+entry.relSec);
+
+  src.connect(env); env.connect(masterGain);
+  src.start(startTime);
+  src.stop(startTime+duration+entry.relSec+0.05);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   VOICE LEADING
+   Given the previous chord's voiced MIDI notes and the new chord's
+   pitch classes (as semitone offsets from root), find the voicing
+   (inversion + octave placement) that minimises total voice movement.
+═══════════════════════════════════════════════════════════════ */
+const OCTAVE_BASE=60; // C4 — centre of keyboard range
+
+function voiceChord(semis, noteIdx, prevVoiced){
+  /* Build candidate notes: root MIDI = octave*12 + noteIdx (mod 12)
+     We allow octaves 2..6 (MIDI 24..83) for each chord tone */
+  const pcs=semis.map(s=>((noteIdx+s)%12+12)%12); // pitch classes
+
+  if(!prevVoiced||prevVoiced.length===0){
+    // First chord: close position around C4
+    const root=OCTAVE_BASE+noteIdx;
+    return semis.map((s,i)=>{
+      let n=root+s;
+      while(n>OCTAVE_BASE+12) n-=12;
+      while(n<OCTAVE_BASE-5)  n+=12;
+      return n;
+    });
+  }
+
+  /* For each chord tone, find the closest MIDI note to the
+     corresponding previous voice (using voice pairing heuristic).
+     We pair voices by position (bass stays bass, etc.) */
+  const nVoices=semis.length;
+  const prevLen=prevVoiced.length;
+
+  // Candidate MIDI notes for each chord tone (3 octaves around centre)
+  const candidates=pcs.map(pc=>{
+    const notes=[];
+    for(let oct=2;oct<=7;oct++) notes.push(oct*12+pc);
+    return notes;
+  });
+
+  // Greedy voice assignment: sort both by pitch and pair closest
+  // Try all inversions (cyclic permutations of semis) and pick min cost
+  let bestVoicing=null, bestCost=Infinity;
+
+  for(let inv=0;inv<nVoices;inv++){
+    // Rotate semis to get inversion starting point
+    const rotated=semis.slice(inv).concat(semis.slice(0,inv));
+    const rotPCs =rotated.map(s=>((noteIdx+s)%12+12)%12);
+
+    // Build voiced notes closest to prev
+    const voiced=[];
+    for(let v=0;v<nVoices;v++){
+      const pc=rotPCs[v];
+      // Generate candidates for this pc in range
+      const cands=[];
+      for(let oct=2;oct<=7;oct++) cands.push(oct*12+pc);
+      // Pick candidate closest to the corresponding prev voice (or centre)
+      const target=prevVoiced[Math.min(v,prevLen-1)];
+      let best=cands[0], bestD=Math.abs(cands[0]-target);
+      for(const c of cands){ const d=Math.abs(c-target); if(d<bestD){bestD=d;best=c;} }
+      voiced.push(best);
+    }
+
+    // Sort voices ascending (standard notation order)
+    voiced.sort((a,b)=>a-b);
+
+    // Ensure voices are within reasonable range (40–88 = E2–E6)
+    let valid=voiced.every(n=>n>=36&&n<=88);
+    if(!valid) continue;
+
+    // Cost = sum of voice movements squared (penalise large leaps)
+    let cost=0;
+    for(let v=0;v<nVoices;v++){
+      const pv=prevVoiced[Math.min(v,prevLen-1)];
+      const mv=voiced[Math.min(v,nVoices-1)];
+      cost+=Math.pow(Math.abs(mv-pv),2);
+    }
+    // Add penalty for parallel fifths/octaves between top two voices
+    if(prevVoiced.length>=2&&voiced.length>=2){
+      const prevInt=(prevVoiced[prevVoiced.length-1]-prevVoiced[prevVoiced.length-2])%12;
+      const newInt=(voiced[voiced.length-1]-voiced[voiced.length-2])%12;
+      if((prevInt===7&&newInt===7)||(prevInt===0&&newInt===0)) cost+=50;
+    }
+
+    if(cost<bestCost){ bestCost=cost; bestVoicing=voiced.slice(); }
+  }
+
+  return bestVoicing || semis.map((s,i)=>OCTAVE_BASE+noteIdx+s);
+}
+
+// Slash chord: force a specific bass pitch class as lowest note
+function voiceChordWithSlash(semis, noteIdx, prevVoiced, slashBassIdx){
+  const voiced=voiceChord(semis,noteIdx,prevVoiced);
+  if(slashBassIdx==null) return voiced;
+  // Find or add the slash bass as the lowest note (octave below the voiced chord)
+  const lowestVoiced=voiced[0];
+  // Pick bass octave just below the lowest chord voice
+  let bassNote=slashBassIdx;
+  while(bassNote>=lowestVoiced) bassNote-=12;
+  while(bassNote<28) bassNote+=12; // keep above E1
+  // Remove any existing note with same pitch class to avoid doubling
+  const upper=voiced.filter(n=>n%12!==slashBassIdx%12);
+  return [bassNote,...upper].sort((a,b)=>a-b);
+}
+
+function inversionLabel(semis, voicedMidi, noteIdx){
+  if(!voicedMidi||voicedMidi.length===0) return '';
+  const bassPC=voicedMidi[0]%12;
+  const rootPC=((noteIdx)%12+12)%12;
+  if(bassPC===rootPC) return '';
+  const bsOffset=((bassPC-rootPC)+12)%12;
+  const idx=semis.indexOf(bsOffset);
+  if(idx===1) return '1st inv.';
+  if(idx===2) return '2nd inv.';
+  if(idx===3) return '3rd inv.';
+  if(idx>3)   return idx+'th inv.';
+  return '';
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CHORD BUILDING
+═══════════════════════════════════════════════════════════════ */
+function toggleExt(e){
+  activeExts.has(e)?activeExts.delete(e):activeExts.add(e);
+  document.querySelectorAll('.eb').forEach(b=>b.classList.toggle('on',activeExts.has(b.dataset.e)));
+  updateProgression();
+}
+
+function getProgList(){
+  const m=modeSelect.value,s=styleSelect.value;
+  if(s==='jazz') return m==='major'?PROGS_JAZZ_MAJ:PROGS_JAZZ_MIN;
+  return m==='major'?PROGS_POP_MAJ:PROGS_POP_MIN;
+}
+
+function buildProgSelect(){
+  progSelect.innerHTML='';
+  getProgList().forEach((p,i)=>{const o=document.createElement('option');o.value=i;o.textContent=p.n;progSelect.appendChild(o);});
+}
+
+function noteAt(idx){return KS[((idx%12)+12)%12];}
+
+function resolveDeg(d,rootIdx,IV,Q,R){
+  const special={bVII:{ofs:10,q:'',r:'bVII'},bIII:{ofs:3,q:'',r:'bIII'},bVI:{ofs:8,q:'',r:'bVI'},bII:{ofs:1,q:'',r:'bII'},II:{ofs:2,q:'',r:'II'}};
+  if(d===-2) return{ni:(rootIdx+10)%12,bq:'',rom:'bVII'};
+  if(special[d]){const sp=special[d];return{ni:(rootIdx+sp.ofs)%12,bq:sp.q,rom:sp.r};}
+  const si=((d%7)+7)%7;
+  return{ni:(rootIdx+IV[si])%12,bq:Q[si],rom:R[si]};
+}
+
+function buildChords(rootIdx,mode,degrees,extOverride){
+  const IV=mode==='major'?MjIV:MnIV, Q=mode==='major'?MjQ:MnQ, R=mode==='major'?RMaj:RMin;
+  const rawChords=degrees.map((d,di)=>{
+    const{ni,bq,rom}=resolveDeg(d,rootIdx,IV,Q,R);
+    let extKey=null;
+    if(extOverride&&extOverride[di]) extKey=extOverride[di];
+    else if(activeExts.size>0){
+      for(const e of activeExts){const ex=EXT[e];if(ex&&ex.c.includes(bq)){extKey=e;break;}}
+    }
+    let semis,extLabel='';
+    if(extKey&&EXT[extKey]&&EXT[extKey].c.includes(bq)){semis=EXT[extKey].s;extLabel=EXT[extKey].l;}
+    else semis=BASE_S[bq]||[0,4,7];
+    return{displayName:noteAt(ni),dispExt:extLabel||(bq==='dim'?'dim':bq),dispSlash:'',slashBassIdx:null,roman:rom,noteIdx:ni,semis,baseQ:bq,extLabel,ivDesc:semis.map(IVD).join(' ')};
+  });
+
+  // Apply voice leading across the progression
+  let prevVoiced=null;
+  return rawChords.map(c=>{
+    const voiced=voiceChordWithSlash(c.semis,c.noteIdx,prevVoiced,c.slashBassIdx||null);
+    prevVoiced=voiced;
+    const invLbl=c.slashBassIdx!=null?('/'+KS[c.slashBassIdx]):inversionLabel(c.semis,voiced,c.noteIdx);
+    return{...c, voicedMidi:voiced, invLabel:invLbl};
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RENDER
+═══════════════════════════════════════════════════════════════ */
+function renderChords(chords){
+  progDisplay.innerHTML=''; beatBarEl.innerHTML=''; beatDots=[];
+  chords.forEach((c,i)=>{
+    const b=document.createElement('div'); b.className='chord-box'; b.id='cb'+i;
+    b.setAttribute('data-idx',i);
+    b.innerHTML=
+      `<span class="edit-hint">✎</span>`+
+      `<button class="del-btn" title="Akkord entfernen" onclick="deleteChord(${i},event)">×</button>`+
+      `<div class="cn">${c.displayName}</div>`+
+      `<div class="ce">${(c.dispExt||'')}${c.dispSlash?'<span style="color:#60a0c0;font-size:.75rem">'+c.dispSlash+'</span>':''}</div>`+
+      `<div class="cr">${c.roman}</div>`+
+      (c.invLabel?`<div class="inv">${c.invLabel}</div>`:'')+
+      `<div class="ci">${c.ivDesc}</div>`;
+    b.addEventListener('click', e=>{
+      if(e.target.classList.contains('del-btn')) return;
+      openEditor(i, b);
+    });
+    progDisplay.appendChild(b);
+  });
+
+  // Add-chord button
+  const addBtn=document.createElement('div');
+  addBtn.className='add-chord-btn';
+  addBtn.title='Akkord hinzufügen';
+  addBtn.innerHTML='+';
+  addBtn.onclick=()=>addChord();
+  progDisplay.appendChild(addBtn);
+
+  for(let i=0;i<chords.length*2;i++){
+    const d=document.createElement('div');d.className='bd';beatBarEl.appendChild(d);beatDots.push(d);
+  }
+}
+
+function lit(i){document.querySelectorAll('.chord-box').forEach((b,j)=>b.classList.toggle('lit',j===i));}
+function litBeat(i){beatDots.forEach((d,j)=>d.classList.toggle('on',j===i));}
+
+/* ═══════════════════════════════════════════════════════════════
+   SYNTH FALLBACK
+═══════════════════════════════════════════════════════════════ */
+function getCtx(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
+function m2f(m){return 440*Math.pow(2,(m-69)/12);}
+
+function playSynthChord(ctx,midiNotes,t,dur){
+  const mg=ctx.createGain(); mg.connect(ctx.destination);
+  mg.gain.setValueAtTime(0,t);
+  mg.gain.linearRampToValueAtTime(0.2,t+0.012);
+  mg.gain.exponentialRampToValueAtTime(0.09,t+0.4);
+  mg.gain.exponentialRampToValueAtTime(0.001,t+dur);
+  midiNotes.forEach((mn,vi)=>{
+    const f=m2f(mn), dl=vi*0.007;
+    [1,2,3].forEach((h,hi)=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.type='sine'; o.frequency.value=f*h;
+      g.gain.value=[0.45,0.1,0.03][hi]*(vi===0?1:0.72);
+      o.connect(g);g.connect(mg); o.start(t+dl);o.stop(t+dur+0.12);
+    });
+    const att=ctx.createOscillator(),ag=ctx.createGain();
+    att.type='triangle';att.frequency.value=f;
+    ag.gain.setValueAtTime(0.05,t+dl);ag.gain.exponentialRampToValueAtTime(0.0001,t+dl+0.05);
+    att.connect(ag);ag.connect(mg);att.start(t+dl);att.stop(t+dl+0.06);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RHYTHM ENGINE
+   Each pattern: array of beat-events per measure.
+   event = {beat: 0-based 16th position, type:'chord'|'arp', noteIdx:0..n-1|'all', vel:0-1, dur:beats}
+   beat is in 16th notes (0=beat1, 4=beat2, 8=beat3, 12=beat4 in 4/4)
+═══════════════════════════════════════════════════════════════ */
+const RHYTHMS=[
+  {n:'Ganze Note (1 Schlag)',     cat:'block',
+   pat4:[[{b:0,t:'chord',ni:'all',v:1.0,d:4}]],
+   pat3:[[{b:0,t:'chord',ni:'all',v:1.0,d:3}]],
+   pat6:[[{b:0,t:'chord',ni:'all',v:1.0,d:6}]]},
+
+  {n:'Halbe Noten',               cat:'block',
+   pat4:[[{b:0,t:'chord',ni:'all',v:1.0,d:2},{b:2,t:'chord',ni:'all',v:0.8,d:2}]],
+   pat3:[[{b:0,t:'chord',ni:'all',v:1.0,d:2},{b:2,t:'chord',ni:'all',v:0.7,d:1}]],
+   pat6:[[{b:0,t:'chord',ni:'all',v:1.0,d:3},{b:3,t:'chord',ni:'all',v:0.8,d:3}]]},
+
+  {n:'Viertel-Akkorde',           cat:'block',
+   pat4:[[{b:0,t:'chord',ni:'all',v:1.0,d:1},{b:1,t:'chord',ni:'all',v:0.75,d:1},{b:2,t:'chord',ni:'all',v:0.85,d:1},{b:3,t:'chord',ni:'all',v:0.7,d:1}]],
+   pat3:[[{b:0,t:'chord',ni:'all',v:1.0,d:1},{b:1,t:'chord',ni:'all',v:0.75,d:1},{b:2,t:'chord',ni:'all',v:0.75,d:1}]],
+   pat6:[[{b:0,t:'chord',ni:'all',v:1.0,d:1},{b:1,t:'chord',ni:'all',v:0.7,d:1},{b:2,t:'chord',ni:'all',v:0.75,d:1},{b:3,t:'chord',ni:'all',v:1.0,d:1},{b:4,t:'chord',ni:'all',v:0.7,d:1},{b:5,t:'chord',ni:'all',v:0.7,d:1}]]},
+
+  {n:'Offbeat / Synkope',         cat:'block',
+   pat4:[[{b:0,t:'chord',ni:'all',v:1.0,d:1},{b:1.5,t:'chord',ni:'all',v:0.8,d:1},{b:2,t:'chord',ni:'all',v:0.85,d:0.5},{b:3,t:'chord',ni:'all',v:0.75,d:1}]],
+   pat3:[[{b:0,t:'chord',ni:'all',v:1.0,d:1},{b:1.5,t:'chord',ni:'all',v:0.8,d:1},{b:2.5,t:'chord',ni:'all',v:0.7,d:0.5}]],
+   pat6:[[{b:0,t:'chord',ni:'all',v:1.0,d:1},{b:1,t:'chord',ni:'all',v:0.7,d:0.5},{b:2,t:'chord',ni:'all',v:0.8,d:1},{b:3.5,t:'chord',ni:'all',v:0.9,d:1},{b:4.5,t:'chord',ni:'all',v:0.7,d:0.5}]]},
+
+  {n:'Arpeggio aufwärts',         cat:'arp',
+   pat4:[[{b:0,t:'arp',ni:0,v:0.9,d:0.9},{b:1,t:'arp',ni:1,v:0.75,d:0.9},{b:2,t:'arp',ni:2,v:0.8,d:0.9},{b:3,t:'arp',ni:'top',v:0.85,d:1.5}]],
+   pat3:[[{b:0,t:'arp',ni:0,v:0.9,d:0.9},{b:1,t:'arp',ni:1,v:0.75,d:0.9},{b:2,t:'arp',ni:2,v:0.85,d:1.5}]],
+   pat6:[[{b:0,t:'arp',ni:0,v:0.9,d:0.8},{b:1,t:'arp',ni:1,v:0.75,d:0.8},{b:2,t:'arp',ni:2,v:0.8,d:0.8},{b:3,t:'arp',ni:0,v:0.85,d:0.8},{b:4,t:'arp',ni:1,v:0.75,d:0.8},{b:5,t:'arp',ni:'top',v:0.9,d:1.5}]]},
+
+  {n:'Arpeggio abwärts',          cat:'arp',
+   pat4:[[{b:0,t:'arp',ni:'top',v:0.9,d:0.9},{b:1,t:'arp',ni:2,v:0.75,d:0.9},{b:2,t:'arp',ni:1,v:0.8,d:0.9},{b:3,t:'arp',ni:0,v:0.85,d:1.5}]],
+   pat3:[[{b:0,t:'arp',ni:'top',v:0.9,d:0.9},{b:1,t:'arp',ni:1,v:0.75,d:0.9},{b:2,t:'arp',ni:0,v:0.85,d:1.5}]],
+   pat6:[[{b:0,t:'arp',ni:'top',v:0.9,d:0.8},{b:1,t:'arp',ni:2,v:0.75,d:0.8},{b:2,t:'arp',ni:1,v:0.8,d:0.8},{b:3,t:'arp',ni:'top',v:0.85,d:0.8},{b:4,t:'arp',ni:2,v:0.75,d:0.8},{b:5,t:'arp',ni:0,v:0.9,d:1.5}]]},
+
+  {n:'Arpeggio auf+ab',           cat:'arp',
+   pat4:[[{b:0,t:'arp',ni:0,v:0.9,d:0.8},{b:0.75,t:'arp',ni:1,v:0.75,d:0.8},{b:1.5,t:'arp',ni:2,v:0.8,d:0.8},{b:2.25,t:'arp',ni:'top',v:0.85,d:0.8},{b:3,t:'arp',ni:2,v:0.75,d:0.8},{b:3.75,t:'arp',ni:1,v:0.7,d:1}]],
+   pat3:[[{b:0,t:'arp',ni:0,v:0.9,d:0.8},{b:0.75,t:'arp',ni:1,v:0.75,d:0.8},{b:1.5,t:'arp',ni:2,v:0.8,d:0.8},{b:2.25,t:'arp',ni:1,v:0.7,d:1}]],
+   pat6:[[{b:0,t:'arp',ni:0,v:0.9,d:0.7},{b:0.75,t:'arp',ni:1,v:0.75,d:0.7},{b:1.5,t:'arp',ni:2,v:0.8,d:0.7},{b:2.25,t:'arp',ni:'top',v:0.85,d:0.7},{b:3,t:'arp',ni:2,v:0.8,d:0.7},{b:3.75,t:'arp',ni:1,v:0.75,d:0.7},{b:4.5,t:'arp',ni:0,v:0.7,d:0.7},{b:5.25,t:'arp',ni:1,v:0.8,d:1}]]},
+
+  {n:'Bass + Akkord (Walzer-feel)',cat:'mixed',
+   pat4:[[{b:0,t:'arp',ni:0,v:1.0,d:1},{b:1,t:'chord',ni:'upper',v:0.75,d:0.8},{b:2,t:'chord',ni:'upper',v:0.75,d:0.8},{b:3,t:'chord',ni:'upper',v:0.7,d:0.8}]],
+   pat3:[[{b:0,t:'arp',ni:0,v:1.0,d:1},{b:1,t:'chord',ni:'upper',v:0.75,d:0.8},{b:2,t:'chord',ni:'upper',v:0.7,d:0.8}]],
+   pat6:[[{b:0,t:'arp',ni:0,v:1.0,d:1},{b:1,t:'chord',ni:'upper',v:0.75,d:0.7},{b:2,t:'chord',ni:'upper',v:0.7,d:0.7},{b:3,t:'arp',ni:0,v:0.9,d:1},{b:4,t:'chord',ni:'upper',v:0.75,d:0.7},{b:5,t:'chord',ni:'upper',v:0.7,d:0.7}]]},
+
+  {n:'Gitarren-Strumming ↓↓↑↓',  cat:'mixed',
+   pat4:[[{b:0,t:'chord',ni:'all',v:1.0,d:0.7},{b:1,t:'chord',ni:'all',v:0.85,d:0.5},{b:1.5,t:'chord',ni:'upper',v:0.7,d:0.4},{b:2,t:'chord',ni:'all',v:0.9,d:0.7},{b:3,t:'chord',ni:'upper',v:0.75,d:0.5}]],
+   pat3:[[{b:0,t:'chord',ni:'all',v:1.0,d:0.7},{b:1,t:'chord',ni:'all',v:0.85,d:0.5},{b:1.5,t:'chord',ni:'upper',v:0.7,d:0.4},{b:2.5,t:'chord',ni:'all',v:0.8,d:0.5}]],
+   pat6:[[{b:0,t:'chord',ni:'all',v:1.0,d:0.6},{b:1,t:'chord',ni:'upper',v:0.7,d:0.4},{b:1.5,t:'chord',ni:'all',v:0.85,d:0.6},{b:2,t:'chord',ni:'upper',v:0.7,d:0.4},{b:3,t:'chord',ni:'all',v:0.9,d:0.6},{b:4,t:'chord',ni:'upper',v:0.75,d:0.4},{b:4.5,t:'chord',ni:'all',v:0.8,d:0.6}]]},
+
+  {n:'Gitarren-Strumming ↓↑↓↑',  cat:'mixed',
+   pat4:[[{b:0,t:'chord',ni:'all',v:1.0,d:0.6},{b:0.5,t:'chord',ni:'upper',v:0.65,d:0.4},{b:1,t:'chord',ni:'all',v:0.85,d:0.6},{b:1.5,t:'chord',ni:'upper',v:0.6,d:0.4},{b:2,t:'chord',ni:'all',v:0.9,d:0.6},{b:2.5,t:'chord',ni:'upper',v:0.65,d:0.4},{b:3,t:'chord',ni:'all',v:0.85,d:0.6},{b:3.5,t:'chord',ni:'upper',v:0.6,d:0.4}]],
+   pat3:[[{b:0,t:'chord',ni:'all',v:1.0,d:0.6},{b:0.5,t:'chord',ni:'upper',v:0.65,d:0.4},{b:1,t:'chord',ni:'all',v:0.85,d:0.6},{b:1.5,t:'chord',ni:'upper',v:0.6,d:0.4},{b:2,t:'chord',ni:'all',v:0.9,d:0.6},{b:2.5,t:'chord',ni:'upper',v:0.65,d:0.4}]],
+   pat6:[[{b:0,t:'chord',ni:'all',v:1.0,d:0.6},{b:0.5,t:'chord',ni:'upper',v:0.65,d:0.4},{b:1,t:'chord',ni:'all',v:0.85,d:0.5},{b:2,t:'chord',ni:'all',v:0.9,d:0.5},{b:2.5,t:'chord',ni:'upper',v:0.65,d:0.4},{b:3,t:'chord',ni:'all',v:1.0,d:0.5},{b:3.5,t:'chord',ni:'upper',v:0.65,d:0.4},{b:4,t:'chord',ni:'all',v:0.85,d:0.5},{b:5,t:'chord',ni:'all',v:0.8,d:0.5}]]},
+
+  {n:'Alberti-Bass',              cat:'arp',
+   pat4:[[{b:0,t:'arp',ni:0,v:0.9,d:0.8},{b:0.5,t:'arp',ni:'top',v:0.7,d:0.7},{b:1,t:'arp',ni:1,v:0.75,d:0.7},{b:1.5,t:'arp',ni:'top',v:0.7,d:0.7},{b:2,t:'arp',ni:0,v:0.9,d:0.8},{b:2.5,t:'arp',ni:'top',v:0.7,d:0.7},{b:3,t:'arp',ni:1,v:0.75,d:0.7},{b:3.5,t:'arp',ni:'top',v:0.7,d:0.7}]],
+   pat3:[[{b:0,t:'arp',ni:0,v:0.9,d:0.8},{b:0.5,t:'arp',ni:'top',v:0.7,d:0.7},{b:1,t:'arp',ni:1,v:0.75,d:0.7},{b:1.5,t:'arp',ni:'top',v:0.7,d:0.7},{b:2,t:'arp',ni:0,v:0.85,d:0.8},{b:2.5,t:'arp',ni:'top',v:0.7,d:0.7}]],
+   pat6:[[{b:0,t:'arp',ni:0,v:0.9,d:0.7},{b:0.5,t:'arp',ni:'top',v:0.65,d:0.6},{b:1,t:'arp',ni:1,v:0.75,d:0.7},{b:1.5,t:'arp',ni:'top',v:0.65,d:0.6},{b:2,t:'arp',ni:0,v:0.85,d:0.7},{b:2.5,t:'arp',ni:'top',v:0.65,d:0.6},{b:3,t:'arp',ni:0,v:0.9,d:0.7},{b:3.5,t:'arp',ni:'top',v:0.65,d:0.6},{b:4,t:'arp',ni:1,v:0.75,d:0.7},{b:4.5,t:'arp',ni:'top',v:0.65,d:0.6},{b:5,t:'arp',ni:0,v:0.85,d:0.7},{b:5.5,t:'arp',ni:'top',v:0.65,d:0.6}]]},
+
+  {n:'Fingerpicking (Folk)',       cat:'mixed',
+   pat4:[[{b:0,t:'arp',ni:0,v:0.95,d:1},{b:1,t:'arp',ni:2,v:0.7,d:0.7},{b:1.5,t:'arp',ni:1,v:0.65,d:0.7},{b:2,t:'arp',ni:0,v:0.9,d:1},{b:3,t:'arp',ni:2,v:0.7,d:0.7},{b:3.5,t:'arp',ni:'top',v:0.7,d:0.7}]],
+   pat3:[[{b:0,t:'arp',ni:0,v:0.95,d:1},{b:1,t:'arp',ni:2,v:0.7,d:0.7},{b:1.5,t:'arp',ni:1,v:0.65,d:0.7},{b:2.5,t:'arp',ni:'top',v:0.7,d:0.7}]],
+   pat6:[[{b:0,t:'arp',ni:0,v:0.95,d:1},{b:1,t:'arp',ni:2,v:0.7,d:0.7},{b:1.5,t:'arp',ni:1,v:0.65,d:0.7},{b:2,t:'arp',ni:2,v:0.7,d:0.7},{b:3,t:'arp',ni:0,v:0.9,d:1},{b:4,t:'arp',ni:2,v:0.7,d:0.7},{b:4.5,t:'arp',ni:1,v:0.65,d:0.7},{b:5,t:'arp',ni:'top',v:0.7,d:0.7}]]},
+
+  {n:'Bossa Nova',                 cat:'mixed',
+   pat4:[[{b:0,t:'chord',ni:'all',v:0.9,d:0.6},{b:0.75,t:'arp',ni:0,v:0.7,d:0.5},{b:1.5,t:'chord',ni:'upper',v:0.8,d:0.5},{b:2,t:'arp',ni:0,v:0.75,d:0.5},{b:2.75,t:'chord',ni:'upper',v:0.8,d:0.5},{b:3.5,t:'arp',ni:0,v:0.7,d:0.5}]],
+   pat3:[[{b:0,t:'chord',ni:'all',v:0.9,d:0.6},{b:0.75,t:'arp',ni:0,v:0.7,d:0.5},{b:1.5,t:'chord',ni:'upper',v:0.8,d:0.5},{b:2.25,t:'arp',ni:0,v:0.75,d:0.5}]],
+   pat6:[[{b:0,t:'chord',ni:'all',v:0.9,d:0.6},{b:0.75,t:'arp',ni:0,v:0.7,d:0.5},{b:1.5,t:'chord',ni:'upper',v:0.8,d:0.5},{b:2.25,t:'arp',ni:0,v:0.75,d:0.5},{b:3,t:'chord',ni:'all',v:0.85,d:0.6},{b:3.75,t:'arp',ni:0,v:0.7,d:0.5},{b:4.5,t:'chord',ni:'upper',v:0.8,d:0.5},{b:5.25,t:'arp',ni:0,v:0.7,d:0.5}]]},
+
+  {n:'Reggae Skank',               cat:'block',
+   pat4:[[{b:0.5,t:'chord',ni:'upper',v:0.9,d:0.4},{b:1.5,t:'chord',ni:'upper',v:0.85,d:0.4},{b:2.5,t:'chord',ni:'upper',v:0.9,d:0.4},{b:3.5,t:'chord',ni:'upper',v:0.85,d:0.4}]],
+   pat3:[[{b:0.5,t:'chord',ni:'upper',v:0.9,d:0.4},{b:1.5,t:'chord',ni:'upper',v:0.85,d:0.4},{b:2.5,t:'chord',ni:'upper',v:0.9,d:0.4}]],
+   pat6:[[{b:0.5,t:'chord',ni:'upper',v:0.9,d:0.4},{b:1.5,t:'chord',ni:'upper',v:0.85,d:0.4},{b:2.5,t:'chord',ni:'upper',v:0.9,d:0.4},{b:3.5,t:'chord',ni:'upper',v:0.85,d:0.4},{b:4.5,t:'chord',ni:'upper',v:0.9,d:0.4}]]},
+
+  {n:'Funk 16tel',                 cat:'mixed',
+   pat4:[[{b:0,t:'chord',ni:'all',v:1.0,d:0.4},{b:0.25,t:'chord',ni:'upper',v:0.6,d:0.25},{b:0.75,t:'chord',ni:'upper',v:0.7,d:0.25},{b:1,t:'chord',ni:'all',v:0.85,d:0.4},{b:1.5,t:'chord',ni:'upper',v:0.65,d:0.25},{b:2,t:'chord',ni:'all',v:0.9,d:0.4},{b:2.75,t:'chord',ni:'upper',v:0.6,d:0.25},{b:3,t:'chord',ni:'all',v:0.85,d:0.4},{b:3.5,t:'chord',ni:'upper',v:0.7,d:0.25}]],
+   pat3:[[{b:0,t:'chord',ni:'all',v:1.0,d:0.4},{b:0.25,t:'chord',ni:'upper',v:0.6,d:0.25},{b:0.75,t:'chord',ni:'upper',v:0.7,d:0.25},{b:1,t:'chord',ni:'all',v:0.85,d:0.4},{b:1.75,t:'chord',ni:'upper',v:0.6,d:0.25},{b:2,t:'chord',ni:'all',v:0.9,d:0.4},{b:2.5,t:'chord',ni:'upper',v:0.65,d:0.25}]],
+   pat6:[[{b:0,t:'chord',ni:'all',v:1.0,d:0.4},{b:0.5,t:'chord',ni:'upper',v:0.65,d:0.3},{b:1,t:'chord',ni:'all',v:0.85,d:0.4},{b:1.5,t:'chord',ni:'upper',v:0.6,d:0.3},{b:2,t:'chord',ni:'all',v:0.9,d:0.4},{b:2.5,t:'chord',ni:'upper',v:0.65,d:0.3},{b:3,t:'chord',ni:'all',v:1.0,d:0.4},{b:3.5,t:'chord',ni:'upper',v:0.65,d:0.3},{b:4,t:'chord',ni:'all',v:0.85,d:0.4},{b:4.5,t:'chord',ni:'upper',v:0.6,d:0.3},{b:5,t:'chord',ni:'all',v:0.9,d:0.4},{b:5.5,t:'chord',ni:'upper',v:0.65,d:0.3}]]},
+
+  {n:'Jazz Comp (Akkorde spät)',   cat:'mixed',
+   pat4:[[{b:0,t:'chord',ni:'all',v:0.85,d:0.5},{b:0.67,t:'chord',ni:'upper',v:0.65,d:0.4},{b:1.5,t:'chord',ni:'upper',v:0.7,d:0.5},{b:2,t:'chord',ni:'all',v:0.8,d:0.4},{b:2.67,t:'chord',ni:'upper',v:0.6,d:0.4},{b:3.5,t:'chord',ni:'upper',v:0.7,d:0.5}]],
+   pat3:[[{b:0,t:'chord',ni:'all',v:0.85,d:0.5},{b:0.67,t:'chord',ni:'upper',v:0.65,d:0.4},{b:1.5,t:'chord',ni:'upper',v:0.7,d:0.5},{b:2.33,t:'chord',ni:'upper',v:0.65,d:0.4}]],
+   pat6:[[{b:0,t:'chord',ni:'all',v:0.85,d:0.5},{b:0.67,t:'chord',ni:'upper',v:0.65,d:0.4},{b:1.5,t:'chord',ni:'upper',v:0.7,d:0.5},{b:2.33,t:'chord',ni:'upper',v:0.6,d:0.4},{b:3,t:'chord',ni:'all',v:0.8,d:0.5},{b:3.67,t:'chord',ni:'upper',v:0.65,d:0.4},{b:4.5,t:'chord',ni:'upper',v:0.7,d:0.5},{b:5.33,t:'chord',ni:'upper',v:0.6,d:0.4}]]},
+
+  {n:'Arpeggio Triplet',          cat:'arp',
+   pat4:[[{b:0,t:'arp',ni:0,v:0.9,d:0.6},{b:0.33,t:'arp',ni:1,v:0.75,d:0.6},{b:0.67,t:'arp',ni:2,v:0.8,d:0.6},{b:1,t:'arp',ni:'top',v:0.85,d:0.6},{b:1.33,t:'arp',ni:2,v:0.75,d:0.6},{b:1.67,t:'arp',ni:1,v:0.7,d:0.6},{b:2,t:'arp',ni:0,v:0.9,d:0.6},{b:2.33,t:'arp',ni:1,v:0.75,d:0.6},{b:2.67,t:'arp',ni:2,v:0.8,d:0.6},{b:3,t:'arp',ni:'top',v:0.85,d:0.6},{b:3.33,t:'arp',ni:2,v:0.75,d:0.6},{b:3.67,t:'arp',ni:1,v:0.7,d:0.7}]],
+   pat3:[[{b:0,t:'arp',ni:0,v:0.9,d:0.6},{b:0.33,t:'arp',ni:1,v:0.75,d:0.6},{b:0.67,t:'arp',ni:2,v:0.8,d:0.6},{b:1,t:'arp',ni:'top',v:0.85,d:0.6},{b:1.33,t:'arp',ni:2,v:0.75,d:0.6},{b:1.67,t:'arp',ni:1,v:0.7,d:0.6},{b:2,t:'arp',ni:0,v:0.9,d:0.6},{b:2.33,t:'arp',ni:1,v:0.75,d:0.6},{b:2.67,t:'arp',ni:2,v:0.7,d:0.7}]],
+   pat6:[[{b:0,t:'arp',ni:0,v:0.9,d:0.55},{b:0.33,t:'arp',ni:1,v:0.75,d:0.55},{b:0.67,t:'arp',ni:2,v:0.8,d:0.55},{b:1,t:'arp',ni:'top',v:0.85,d:0.55},{b:1.33,t:'arp',ni:2,v:0.75,d:0.55},{b:1.67,t:'arp',ni:1,v:0.7,d:0.55},{b:2,t:'arp',ni:0,v:0.9,d:0.55},{b:2.33,t:'arp',ni:1,v:0.75,d:0.55},{b:2.67,t:'arp',ni:2,v:0.8,d:0.55},{b:3,t:'arp',ni:'top',v:0.85,d:0.55},{b:3.33,t:'arp',ni:2,v:0.75,d:0.55},{b:3.67,t:'arp',ni:1,v:0.7,d:0.55},{b:4,t:'arp',ni:0,v:0.9,d:0.55},{b:4.33,t:'arp',ni:1,v:0.75,d:0.55},{b:4.67,t:'arp',ni:2,v:0.8,d:0.55},{b:5,t:'arp',ni:'top',v:0.85,d:0.55},{b:5.33,t:'arp',ni:2,v:0.75,d:0.55},{b:5.67,t:'arp',ni:1,v:0.7,d:0.7}]]},
+
+  // ── 5 neue Gitarren-Patterns ──────────────────────────────────
+
+  // 1. Power-Chord Rock: starker Beat 1, muted 16tel auf 2+4
+  {n:'♩ Gitarre: Power-Chord Rock',  cat:'mixed',
+   pat4:[[
+     {b:0,   t:'chord',ni:'all',  v:1.0, d:0.85},
+     {b:1,   t:'chord',ni:'all',  v:0.55,d:0.25},
+     {b:1.5, t:'chord',ni:'upper',v:0.45,d:0.2 },
+     {b:2,   t:'chord',ni:'all',  v:0.9, d:0.85},
+     {b:3,   t:'chord',ni:'all',  v:0.55,d:0.25},
+     {b:3.5, t:'chord',ni:'upper',v:0.45,d:0.2 }]],
+   pat3:[[
+     {b:0,   t:'chord',ni:'all',  v:1.0, d:0.85},
+     {b:1,   t:'chord',ni:'all',  v:0.6, d:0.25},
+     {b:1.5, t:'chord',ni:'upper',v:0.45,d:0.2 },
+     {b:2,   t:'chord',ni:'all',  v:0.85,d:0.85},
+     {b:2.5, t:'chord',ni:'upper',v:0.5, d:0.2 }]],
+   pat6:[[
+     {b:0,   t:'chord',ni:'all',  v:1.0, d:0.85},
+     {b:1,   t:'chord',ni:'upper',v:0.5, d:0.25},
+     {b:1.5, t:'chord',ni:'upper',v:0.45,d:0.2 },
+     {b:2,   t:'chord',ni:'all',  v:0.85,d:0.85},
+     {b:2.5, t:'chord',ni:'upper',v:0.5, d:0.2 },
+     {b:3,   t:'chord',ni:'all',  v:1.0, d:0.85},
+     {b:4,   t:'chord',ni:'upper',v:0.5, d:0.25},
+     {b:4.5, t:'chord',ni:'upper',v:0.45,d:0.2 },
+     {b:5,   t:'chord',ni:'all',  v:0.85,d:0.85}]]},
+
+  // 2. Balladen-Picking: Bass dann 3 Oberstimmen nacheinander (Travis-Picking-Stil)
+  {n:'♩ Gitarre: Balladen-Picking',  cat:'mixed',
+   pat4:[[
+     {b:0,   t:'arp',  ni:0,     v:0.95,d:1.8 },
+     {b:0.5, t:'arp',  ni:2,     v:0.7, d:0.6 },
+     {b:1,   t:'arp',  ni:1,     v:0.65,d:0.6 },
+     {b:1.5, t:'arp',  ni:'top', v:0.7, d:0.6 },
+     {b:2,   t:'arp',  ni:0,     v:0.9, d:1.8 },
+     {b:2.5, t:'arp',  ni:'top', v:0.65,d:0.6 },
+     {b:3,   t:'arp',  ni:1,     v:0.65,d:0.6 },
+     {b:3.5, t:'arp',  ni:2,     v:0.7, d:0.6 }]],
+   pat3:[[
+     {b:0,   t:'arp',  ni:0,     v:0.95,d:1.5 },
+     {b:0.5, t:'arp',  ni:2,     v:0.7, d:0.55},
+     {b:1,   t:'arp',  ni:1,     v:0.65,d:0.55},
+     {b:1.5, t:'arp',  ni:'top', v:0.7, d:0.55},
+     {b:2,   t:'arp',  ni:0,     v:0.85,d:1.0 },
+     {b:2.5, t:'arp',  ni:'top', v:0.65,d:0.55}]],
+   pat6:[[
+     {b:0,   t:'arp',  ni:0,     v:0.95,d:1.0 },
+     {b:0.5, t:'arp',  ni:2,     v:0.7, d:0.55},
+     {b:1,   t:'arp',  ni:1,     v:0.65,d:0.55},
+     {b:1.5, t:'arp',  ni:'top', v:0.7, d:0.55},
+     {b:2,   t:'arp',  ni:2,     v:0.65,d:0.55},
+     {b:2.5, t:'arp',  ni:1,     v:0.6, d:0.55},
+     {b:3,   t:'arp',  ni:0,     v:0.9, d:1.0 },
+     {b:3.5, t:'arp',  ni:2,     v:0.7, d:0.55},
+     {b:4,   t:'arp',  ni:1,     v:0.65,d:0.55},
+     {b:4.5, t:'arp',  ni:'top', v:0.7, d:0.55},
+     {b:5,   t:'arp',  ni:2,     v:0.65,d:0.55},
+     {b:5.5, t:'arp',  ni:1,     v:0.6, d:0.6 }]]},
+
+  // 3. Flamenco-Rasgueado: schnelle Fächer-Schläge auf Beats 1+3, kurze Hochschläge
+  {n:'♩ Gitarre: Flamenco Rasgueado', cat:'mixed',
+   pat4:[[
+     {b:0,    t:'chord',ni:'all',  v:1.0, d:0.35},
+     {b:0.15, t:'chord',ni:'upper',v:0.7, d:0.25},
+     {b:0.3,  t:'chord',ni:'upper',v:0.55,d:0.2 },
+     {b:0.75, t:'chord',ni:'upper',v:0.5, d:0.2 },
+     {b:1,    t:'arp',  ni:0,     v:0.8, d:0.4 },
+     {b:1.5,  t:'chord',ni:'upper',v:0.6, d:0.25},
+     {b:2,    t:'chord',ni:'all',  v:1.0, d:0.35},
+     {b:2.15, t:'chord',ni:'upper',v:0.7, d:0.25},
+     {b:2.3,  t:'chord',ni:'upper',v:0.55,d:0.2 },
+     {b:2.75, t:'chord',ni:'upper',v:0.5, d:0.2 },
+     {b:3,    t:'arp',  ni:0,     v:0.8, d:0.4 },
+     {b:3.5,  t:'chord',ni:'upper',v:0.6, d:0.25}]],
+   pat3:[[
+     {b:0,    t:'chord',ni:'all',  v:1.0, d:0.35},
+     {b:0.15, t:'chord',ni:'upper',v:0.7, d:0.25},
+     {b:0.3,  t:'chord',ni:'upper',v:0.55,d:0.2 },
+     {b:0.75, t:'chord',ni:'upper',v:0.5, d:0.2 },
+     {b:1,    t:'arp',  ni:0,     v:0.8, d:0.4 },
+     {b:1.5,  t:'chord',ni:'upper',v:0.6, d:0.25},
+     {b:2,    t:'chord',ni:'all',  v:0.9, d:0.35},
+     {b:2.5,  t:'chord',ni:'upper',v:0.6, d:0.25}]],
+   pat6:[[
+     {b:0,    t:'chord',ni:'all',  v:1.0, d:0.35},
+     {b:0.15, t:'chord',ni:'upper',v:0.7, d:0.25},
+     {b:0.3,  t:'chord',ni:'upper',v:0.55,d:0.2 },
+     {b:0.75, t:'arp',  ni:0,     v:0.75,d:0.35},
+     {b:1,    t:'chord',ni:'upper',v:0.6, d:0.25},
+     {b:1.5,  t:'chord',ni:'all',  v:0.9, d:0.35},
+     {b:1.65, t:'chord',ni:'upper',v:0.65,d:0.25},
+     {b:2,    t:'arp',  ni:0,     v:0.8, d:0.35},
+     {b:2.5,  t:'chord',ni:'upper',v:0.55,d:0.2 },
+     {b:3,    t:'chord',ni:'all',  v:1.0, d:0.35},
+     {b:3.15, t:'chord',ni:'upper',v:0.7, d:0.25},
+     {b:3.5,  t:'arp',  ni:0,     v:0.75,d:0.35},
+     {b:4,    t:'chord',ni:'upper',v:0.6, d:0.25},
+     {b:4.5,  t:'chord',ni:'all',  v:0.9, d:0.35},
+     {b:5,    t:'arp',  ni:0,     v:0.8, d:0.4 },
+     {b:5.5,  t:'chord',ni:'upper',v:0.55,d:0.25}]]},
+
+  // 4. Country / Claw-Hammer: Bass-Note abwechselnd mit Akkord-Pinch
+  {n:'♩ Gitarre: Country Clawhammer', cat:'mixed',
+   pat4:[[
+     {b:0,   t:'arp',  ni:0,     v:1.0, d:0.85},
+     {b:1,   t:'chord',ni:'upper',v:0.75,d:0.7 },
+     {b:1.5, t:'arp',  ni:0,     v:0.7, d:0.4 },
+     {b:2,   t:'arp',  ni:1,     v:0.9, d:0.85},
+     {b:3,   t:'chord',ni:'upper',v:0.75,d:0.7 },
+     {b:3.5, t:'arp',  ni:0,     v:0.65,d:0.4 }]],
+   pat3:[[
+     {b:0,   t:'arp',  ni:0,     v:1.0, d:0.85},
+     {b:1,   t:'chord',ni:'upper',v:0.75,d:0.7 },
+     {b:1.5, t:'arp',  ni:1,     v:0.65,d:0.4 },
+     {b:2,   t:'chord',ni:'upper',v:0.7, d:0.7 },
+     {b:2.5, t:'arp',  ni:0,     v:0.6, d:0.4 }]],
+   pat6:[[
+     {b:0,   t:'arp',  ni:0,     v:1.0, d:0.85},
+     {b:1,   t:'chord',ni:'upper',v:0.75,d:0.7 },
+     {b:1.5, t:'arp',  ni:1,     v:0.7, d:0.5 },
+     {b:2,   t:'chord',ni:'upper',v:0.7, d:0.7 },
+     {b:2.5, t:'arp',  ni:0,     v:0.65,d:0.4 },
+     {b:3,   t:'arp',  ni:0,     v:0.95,d:0.85},
+     {b:4,   t:'chord',ni:'upper',v:0.75,d:0.7 },
+     {b:4.5, t:'arp',  ni:1,     v:0.7, d:0.5 },
+     {b:5,   t:'chord',ni:'upper',v:0.7, d:0.7 },
+     {b:5.5, t:'arp',  ni:0,     v:0.6, d:0.4 }]]},
+
+  // 5. Metal-Gallop: Dreier-Unterteilung auf Downbeat, typischer Heavy-Rhythmus
+  {n:'♩ Gitarre: Metal Gallop',       cat:'block',
+   pat4:[[
+     {b:0,    t:'chord',ni:'all',  v:1.0, d:0.28},
+     {b:0.33, t:'chord',ni:'all',  v:0.65,d:0.22},
+     {b:0.67, t:'chord',ni:'all',  v:0.7, d:0.22},
+     {b:1,    t:'chord',ni:'all',  v:0.95,d:0.28},
+     {b:1.33, t:'chord',ni:'all',  v:0.6, d:0.22},
+     {b:1.67, t:'chord',ni:'all',  v:0.65,d:0.22},
+     {b:2,    t:'chord',ni:'all',  v:1.0, d:0.28},
+     {b:2.33, t:'chord',ni:'all',  v:0.65,d:0.22},
+     {b:2.67, t:'chord',ni:'all',  v:0.7, d:0.22},
+     {b:3,    t:'chord',ni:'all',  v:0.95,d:0.28},
+     {b:3.33, t:'chord',ni:'all',  v:0.6, d:0.22},
+     {b:3.67, t:'chord',ni:'all',  v:0.65,d:0.22}]],
+   pat3:[[
+     {b:0,    t:'chord',ni:'all',  v:1.0, d:0.28},
+     {b:0.33, t:'chord',ni:'all',  v:0.65,d:0.22},
+     {b:0.67, t:'chord',ni:'all',  v:0.7, d:0.22},
+     {b:1,    t:'chord',ni:'all',  v:0.9, d:0.28},
+     {b:1.33, t:'chord',ni:'all',  v:0.6, d:0.22},
+     {b:1.67, t:'chord',ni:'all',  v:0.65,d:0.22},
+     {b:2,    t:'chord',ni:'all',  v:0.95,d:0.28},
+     {b:2.33, t:'chord',ni:'all',  v:0.6, d:0.22},
+     {b:2.67, t:'chord',ni:'all',  v:0.65,d:0.22}]],
+   pat6:[[
+     {b:0,    t:'chord',ni:'all',  v:1.0, d:0.28},
+     {b:0.33, t:'chord',ni:'all',  v:0.65,d:0.22},
+     {b:0.67, t:'chord',ni:'all',  v:0.7, d:0.22},
+     {b:1,    t:'chord',ni:'all',  v:0.9, d:0.28},
+     {b:1.33, t:'chord',ni:'all',  v:0.6, d:0.22},
+     {b:1.67, t:'chord',ni:'all',  v:0.65,d:0.22},
+     {b:2,    t:'chord',ni:'all',  v:0.95,d:0.28},
+     {b:2.33, t:'chord',ni:'all',  v:0.6, d:0.22},
+     {b:2.67, t:'chord',ni:'all',  v:0.65,d:0.22},
+     {b:3,    t:'chord',ni:'all',  v:1.0, d:0.28},
+     {b:3.33, t:'chord',ni:'all',  v:0.65,d:0.22},
+     {b:3.67, t:'chord',ni:'all',  v:0.7, d:0.22},
+     {b:4,    t:'chord',ni:'all',  v:0.9, d:0.28},
+     {b:4.33, t:'chord',ni:'all',  v:0.6, d:0.22},
+     {b:4.67, t:'chord',ni:'all',  v:0.65,d:0.22},
+     {b:5,    t:'chord',ni:'all',  v:0.95,d:0.28},
+     {b:5.33, t:'chord',ni:'all',  v:0.6, d:0.22},
+     {b:5.67, t:'chord',ni:'all',  v:0.65,d:0.22}]]},
+
+  // 6. Pop-Ballade (Ed Sheeran-Stil): Bass auf 1+3, Akkord auf 2+4, leichte Achtel dazwischen
+  {n:'♩ Gitarre: Pop-Ballade',          cat:'mixed',
+   pat4:[[
+     {b:0,    t:'arp',  ni:0,     v:1.0, d:0.9 },
+     {b:0.5,  t:'arp',  ni:1,     v:0.55,d:0.4 },
+     {b:1,    t:'chord',ni:'upper',v:0.8, d:0.7 },
+     {b:1.5,  t:'arp',  ni:1,     v:0.5, d:0.4 },
+     {b:2,    t:'arp',  ni:0,     v:0.95,d:0.9 },
+     {b:2.5,  t:'arp',  ni:2,     v:0.55,d:0.4 },
+     {b:3,    t:'chord',ni:'upper',v:0.8, d:0.7 },
+     {b:3.5,  t:'arp',  ni:1,     v:0.5, d:0.4 }]],
+   pat3:[[
+     {b:0,    t:'arp',  ni:0,     v:1.0, d:0.9 },
+     {b:0.5,  t:'arp',  ni:1,     v:0.55,d:0.4 },
+     {b:1,    t:'chord',ni:'upper',v:0.8, d:0.7 },
+     {b:1.5,  t:'arp',  ni:1,     v:0.5, d:0.4 },
+     {b:2,    t:'chord',ni:'upper',v:0.75,d:0.7 },
+     {b:2.5,  t:'arp',  ni:0,     v:0.55,d:0.4 }]],
+   pat6:[[
+     {b:0,    t:'arp',  ni:0,     v:1.0, d:0.9 },
+     {b:0.5,  t:'arp',  ni:1,     v:0.55,d:0.4 },
+     {b:1,    t:'chord',ni:'upper',v:0.8, d:0.6 },
+     {b:1.5,  t:'arp',  ni:2,     v:0.5, d:0.4 },
+     {b:2,    t:'chord',ni:'upper',v:0.75,d:0.6 },
+     {b:2.5,  t:'arp',  ni:1,     v:0.5, d:0.4 },
+     {b:3,    t:'arp',  ni:0,     v:0.95,d:0.9 },
+     {b:3.5,  t:'arp',  ni:1,     v:0.55,d:0.4 },
+     {b:4,    t:'chord',ni:'upper',v:0.8, d:0.6 },
+     {b:4.5,  t:'arp',  ni:2,     v:0.5, d:0.4 },
+     {b:5,    t:'chord',ni:'upper',v:0.75,d:0.6 },
+     {b:5.5,  t:'arp',  ni:1,     v:0.5, d:0.4 }]]},
+
+  // 7. 16tel-Funk Mute: abwechselnd volle + muted (upper) Schläge, sehr groove-betont
+  {n:'♩ Gitarre: Funk Mute 16tel',       cat:'mixed',
+   pat4:[[
+     {b:0,    t:'chord',ni:'all',  v:1.0, d:0.22},
+     {b:0.25, t:'chord',ni:'upper',v:0.45,d:0.18},
+     {b:0.5,  t:'chord',ni:'upper',v:0.6, d:0.22},
+     {b:0.75, t:'chord',ni:'upper',v:0.4, d:0.18},
+     {b:1,    t:'chord',ni:'all',  v:0.9, d:0.22},
+     {b:1.25, t:'chord',ni:'upper',v:0.4, d:0.18},
+     {b:1.75, t:'chord',ni:'upper',v:0.65,d:0.22},
+     {b:2,    t:'chord',ni:'all',  v:1.0, d:0.22},
+     {b:2.25, t:'chord',ni:'upper',v:0.45,d:0.18},
+     {b:2.5,  t:'chord',ni:'upper',v:0.6, d:0.22},
+     {b:3,    t:'chord',ni:'all',  v:0.9, d:0.22},
+     {b:3.25, t:'chord',ni:'upper',v:0.4, d:0.18},
+     {b:3.5,  t:'chord',ni:'upper',v:0.55,d:0.22},
+     {b:3.75, t:'chord',ni:'upper',v:0.4, d:0.18}]],
+   pat3:[[
+     {b:0,    t:'chord',ni:'all',  v:1.0, d:0.22},
+     {b:0.25, t:'chord',ni:'upper',v:0.45,d:0.18},
+     {b:0.5,  t:'chord',ni:'upper',v:0.6, d:0.22},
+     {b:0.75, t:'chord',ni:'upper',v:0.4, d:0.18},
+     {b:1,    t:'chord',ni:'all',  v:0.9, d:0.22},
+     {b:1.5,  t:'chord',ni:'upper',v:0.65,d:0.22},
+     {b:1.75, t:'chord',ni:'upper',v:0.4, d:0.18},
+     {b:2,    t:'chord',ni:'all',  v:0.95,d:0.22},
+     {b:2.25, t:'chord',ni:'upper',v:0.45,d:0.18},
+     {b:2.5,  t:'chord',ni:'upper',v:0.55,d:0.22},
+     {b:2.75, t:'chord',ni:'upper',v:0.4, d:0.18}]],
+   pat6:[[
+     {b:0,    t:'chord',ni:'all',  v:1.0, d:0.22},
+     {b:0.25, t:'chord',ni:'upper',v:0.45,d:0.18},
+     {b:0.5,  t:'chord',ni:'upper',v:0.6, d:0.22},
+     {b:0.75, t:'chord',ni:'upper',v:0.4, d:0.18},
+     {b:1,    t:'chord',ni:'all',  v:0.9, d:0.22},
+     {b:1.5,  t:'chord',ni:'upper',v:0.65,d:0.22},
+     {b:2,    t:'chord',ni:'all',  v:0.95,d:0.22},
+     {b:2.25, t:'chord',ni:'upper',v:0.4, d:0.18},
+     {b:2.5,  t:'chord',ni:'upper',v:0.55,d:0.22},
+     {b:3,    t:'chord',ni:'all',  v:1.0, d:0.22},
+     {b:3.25, t:'chord',ni:'upper',v:0.45,d:0.18},
+     {b:3.5,  t:'chord',ni:'upper',v:0.6, d:0.22},
+     {b:3.75, t:'chord',ni:'upper',v:0.4, d:0.18},
+     {b:4,    t:'chord',ni:'all',  v:0.9, d:0.22},
+     {b:4.5,  t:'chord',ni:'upper',v:0.65,d:0.22},
+     {b:5,    t:'chord',ni:'all',  v:0.95,d:0.22},
+     {b:5.25, t:'chord',ni:'upper',v:0.4, d:0.18},
+     {b:5.5,  t:'chord',ni:'upper',v:0.55,d:0.22},
+     {b:5.75, t:'chord',ni:'upper',v:0.4, d:0.18}]]},
+
+  // 8. 6/8 Irish Jig / Celtic: Bass auf 1+4, Akkord-Dreier dazwischen
+  {n:'♩ Gitarre: Celtic Jig',            cat:'mixed',
+   pat4:[[
+     {b:0,    t:'arp',  ni:0,     v:1.0, d:0.7 },
+     {b:0.33, t:'chord',ni:'upper',v:0.65,d:0.3 },
+     {b:0.67, t:'chord',ni:'upper',v:0.55,d:0.3 },
+     {b:1,    t:'arp',  ni:0,     v:0.85,d:0.7 },
+     {b:1.33, t:'chord',ni:'upper',v:0.6, d:0.3 },
+     {b:1.67, t:'chord',ni:'upper',v:0.5, d:0.3 },
+     {b:2,    t:'arp',  ni:0,     v:1.0, d:0.7 },
+     {b:2.33, t:'chord',ni:'upper',v:0.65,d:0.3 },
+     {b:2.67, t:'chord',ni:'upper',v:0.55,d:0.3 },
+     {b:3,    t:'arp',  ni:0,     v:0.85,d:0.7 },
+     {b:3.33, t:'chord',ni:'upper',v:0.6, d:0.3 },
+     {b:3.67, t:'chord',ni:'upper',v:0.5, d:0.3 }]],
+   pat3:[[
+     {b:0,    t:'arp',  ni:0,     v:1.0, d:0.7 },
+     {b:0.33, t:'chord',ni:'upper',v:0.65,d:0.3 },
+     {b:0.67, t:'chord',ni:'upper',v:0.55,d:0.3 },
+     {b:1,    t:'arp',  ni:0,     v:0.85,d:0.7 },
+     {b:1.33, t:'chord',ni:'upper',v:0.6, d:0.3 },
+     {b:1.67, t:'chord',ni:'upper',v:0.5, d:0.3 },
+     {b:2,    t:'arp',  ni:0,     v:0.9, d:0.7 },
+     {b:2.33, t:'chord',ni:'upper',v:0.6, d:0.3 },
+     {b:2.67, t:'chord',ni:'upper',v:0.5, d:0.3 }]],
+   pat6:[[
+     {b:0,    t:'arp',  ni:0,     v:1.0, d:0.7 },
+     {b:0.33, t:'chord',ni:'upper',v:0.65,d:0.3 },
+     {b:0.67, t:'chord',ni:'upper',v:0.55,d:0.3 },
+     {b:1,    t:'chord',ni:'upper',v:0.6, d:0.3 },
+     {b:1.33, t:'chord',ni:'upper',v:0.5, d:0.3 },
+     {b:1.67, t:'arp',  ni:1,     v:0.75,d:0.4 },
+     {b:2,    t:'arp',  ni:0,     v:0.95,d:0.7 },
+     {b:2.33, t:'chord',ni:'upper',v:0.65,d:0.3 },
+     {b:2.67, t:'chord',ni:'upper',v:0.55,d:0.3 },
+     {b:3,    t:'chord',ni:'upper',v:0.6, d:0.3 },
+     {b:3.33, t:'chord',ni:'upper',v:0.5, d:0.3 },
+     {b:3.67, t:'arp',  ni:1,     v:0.7, d:0.4 },
+     {b:4,    t:'arp',  ni:0,     v:1.0, d:0.7 },
+     {b:4.33, t:'chord',ni:'upper',v:0.65,d:0.3 },
+     {b:4.67, t:'chord',ni:'upper',v:0.55,d:0.3 },
+     {b:5,    t:'chord',ni:'upper',v:0.6, d:0.3 },
+     {b:5.33, t:'chord',ni:'upper',v:0.5, d:0.3 },
+     {b:5.67, t:'arp',  ni:1,     v:0.7, d:0.4 }]]},
+
+  // 9. Soul/R&B: Akkord auf Beat 1, Synkope vor 3, Akkord auf "and-of-4"
+  {n:'♩ Gitarre: Soul / R&B',            cat:'mixed',
+   pat4:[[
+     {b:0,    t:'chord',ni:'all',  v:1.0, d:0.55},
+     {b:0.5,  t:'chord',ni:'upper',v:0.5, d:0.25},
+     {b:1,    t:'chord',ni:'upper',v:0.65,d:0.4 },
+     {b:1.75, t:'chord',ni:'all',  v:0.85,d:0.5 },
+     {b:2.5,  t:'chord',ni:'upper',v:0.6, d:0.35},
+     {b:3,    t:'chord',ni:'all',  v:0.9, d:0.5 },
+     {b:3.5,  t:'chord',ni:'upper',v:0.5, d:0.25},
+     {b:3.75, t:'chord',ni:'upper',v:0.7, d:0.4 }]],
+   pat3:[[
+     {b:0,    t:'chord',ni:'all',  v:1.0, d:0.55},
+     {b:0.5,  t:'chord',ni:'upper',v:0.5, d:0.25},
+     {b:1,    t:'chord',ni:'upper',v:0.65,d:0.4 },
+     {b:1.75, t:'chord',ni:'all',  v:0.85,d:0.5 },
+     {b:2.5,  t:'chord',ni:'upper',v:0.6, d:0.35},
+     {b:2.75, t:'chord',ni:'upper',v:0.5, d:0.25}]],
+   pat6:[[
+     {b:0,    t:'chord',ni:'all',  v:1.0, d:0.55},
+     {b:0.5,  t:'chord',ni:'upper',v:0.5, d:0.25},
+     {b:1,    t:'chord',ni:'upper',v:0.65,d:0.4 },
+     {b:1.75, t:'chord',ni:'all',  v:0.85,d:0.5 },
+     {b:2.5,  t:'chord',ni:'upper',v:0.6, d:0.35},
+     {b:3,    t:'chord',ni:'all',  v:1.0, d:0.55},
+     {b:3.5,  t:'chord',ni:'upper',v:0.5, d:0.25},
+     {b:4,    t:'chord',ni:'upper',v:0.65,d:0.4 },
+     {b:4.75, t:'chord',ni:'all',  v:0.85,d:0.5 },
+     {b:5.5,  t:'chord',ni:'upper',v:0.6, d:0.35},
+     {b:5.75, t:'chord',ni:'upper',v:0.55,d:0.25}]]},
+
+  // 10. Indie-Arpeggio (Coldplay/U2-Stil): Bass+Mittelstimme Achtel, Melodie-Ton auf Zählzeit 3
+  {n:'♩ Gitarre: Indie Arpeggio',        cat:'arp',
+   pat4:[[
+     {b:0,    t:'arp',  ni:0,     v:0.95,d:0.9 },
+     {b:0.5,  t:'arp',  ni:1,     v:0.6, d:0.5 },
+     {b:1,    t:'arp',  ni:2,     v:0.65,d:0.5 },
+     {b:1.5,  t:'arp',  ni:1,     v:0.55,d:0.5 },
+     {b:2,    t:'arp',  ni:0,     v:0.9, d:0.9 },
+     {b:2.5,  t:'arp',  ni:'top', v:0.75,d:0.7 },
+     {b:3,    t:'arp',  ni:2,     v:0.65,d:0.5 },
+     {b:3.5,  t:'arp',  ni:1,     v:0.55,d:0.5 }]],
+   pat3:[[
+     {b:0,    t:'arp',  ni:0,     v:0.95,d:0.9 },
+     {b:0.5,  t:'arp',  ni:1,     v:0.6, d:0.5 },
+     {b:1,    t:'arp',  ni:2,     v:0.65,d:0.5 },
+     {b:1.5,  t:'arp',  ni:1,     v:0.55,d:0.5 },
+     {b:2,    t:'arp',  ni:'top', v:0.8, d:0.7 },
+     {b:2.5,  t:'arp',  ni:1,     v:0.55,d:0.5 }]],
+   pat6:[[
+     {b:0,    t:'arp',  ni:0,     v:0.95,d:0.8 },
+     {b:0.5,  t:'arp',  ni:1,     v:0.6, d:0.5 },
+     {b:1,    t:'arp',  ni:2,     v:0.65,d:0.5 },
+     {b:1.5,  t:'arp',  ni:1,     v:0.55,d:0.5 },
+     {b:2,    t:'arp',  ni:2,     v:0.65,d:0.5 },
+     {b:2.5,  t:'arp',  ni:'top', v:0.75,d:0.6 },
+     {b:3,    t:'arp',  ni:0,     v:0.9, d:0.8 },
+     {b:3.5,  t:'arp',  ni:1,     v:0.6, d:0.5 },
+     {b:4,    t:'arp',  ni:2,     v:0.65,d:0.5 },
+     {b:4.5,  t:'arp',  ni:1,     v:0.55,d:0.5 },
+     {b:5,    t:'arp',  ni:2,     v:0.65,d:0.5 },
+     {b:5.5,  t:'arp',  ni:'top', v:0.75,d:0.6 }]]},
+];
+
+function buildRhythmSelect(){
+  const sel=$('rhythmSelect'); sel.innerHTML='';
+  RHYTHMS.forEach((r,i)=>{
+    const o=document.createElement('option'); o.value=i;
+    const cat={block:'◼',arp:'~',mixed:'♩'}[r.cat]||'';
+    o.textContent=cat+' '+r.n;
+    sel.appendChild(o);
+  });
+}
+
+// Resolve note index for a pattern event against voicedMidi array
+function resolveNoteIdx(ni, voiced){
+  if(!voiced||voiced.length===0) return [];
+  if(ni==='all')   return voiced;
+  if(ni==='upper') return voiced.length>1?voiced.slice(1):voiced;
+  if(ni==='top')   return [voiced[voiced.length-1]];
+  const i=Math.min(ni, voiced.length-1);
+  return [voiced[i]];
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PLAYBACK  (rhythm-aware)
+═══════════════════════════════════════════════════════════════ */
+function playChordNow(ctx, chord, t, dur){
+  const midiNotes=chord.voicedMidi;
+  if(SF2){
+    const mg=ctx.createGain();
+    mg.gain.value=0.7/Math.sqrt(midiNotes.length);
+    mg.connect(ctx.destination);
+    midiNotes.forEach((mn,i)=>playSF2Note(ctx,mn,t+i*0.006,dur,mg));
+  } else {
+    playSynthChord(ctx,midiNotes,t,dur);
+  }
+}
+
+function playSingleNote(ctx, midiNote, t, dur, vel){
+  if(SF2){
+    const mg=ctx.createGain(); mg.gain.value=vel*0.72; mg.connect(ctx.destination);
+    playSF2Note(ctx,midiNote,t,dur,mg);
+  } else {
+    const mg=ctx.createGain(); mg.connect(ctx.destination);
+    mg.gain.setValueAtTime(0,t); mg.gain.linearRampToValueAtTime(vel*0.22,t+0.012);
+    mg.gain.exponentialRampToValueAtTime(vel*0.08,t+dur*0.5); mg.gain.exponentialRampToValueAtTime(0.001,t+dur);
+    const f=m2f(midiNote);
+    [1,2,3].forEach((h,hi)=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();
+      o.type='sine'; o.frequency.value=f*h; g.gain.value=[0.5,0.12,0.03][hi];
+      o.connect(g); g.connect(mg); o.start(t); o.stop(t+dur+0.1);
+    });
+  }
+}
+
+function scheduleRhythmMeasure(ctx, chord, measureStart, beatDur){
+  const meter=parseInt($('meterSelect').value)||4;
+  const ri=parseInt($('rhythmSelect').value)||0;
+  const rhythm=RHYTHMS[ri]||RHYTHMS[0];
+  const patKey=meter===3?'pat3':meter===6?'pat6':'pat4';
+  const pat=rhythm[patKey]||rhythm.pat4;
+  // pat is array of measures; use modulo for multi-measure patterns
+  const measure=pat[0]; // all our patterns are single-measure
+
+  const voiced=chord.voicedMidi;
+  measure.forEach(ev=>{
+    const evTime=measureStart+ev.b*beatDur;
+    const evDur=ev.d*beatDur*0.95;
+    const notes=resolveNoteIdx(ev.ni, voiced);
+    if(ev.t==='chord'){
+      // Play all notes simultaneously
+      notes.forEach((mn,si)=>{
+        playSingleNote(ctx,mn,evTime+si*0.005,evDur,ev.v);
+      });
+    } else {
+      // arp: single note
+      const mn=notes[0];
+      if(mn!=null) playSingleNote(ctx,mn,evTime,evDur,ev.v);
+    }
+  });
+}
+
+async function playPause(){
+  if(isPlaying){stopPlayback();return;}
+  if(!currentChords.length) updateProgression();
+  isPlaying=true; stopFlag=false;
+  playBtn.innerHTML='&#9646;&#9646; Pause';
+  const lbl=SF2?'SF2 '+($('sf2Filename').value.replace('.sf2','')):'Synthesizer';
+  statusBar.textContent='Spielt — '+lbl+'…'; statusBar.className='status play';
+  const ctx=getCtx();
+  if(ctx.state==='suspended') await ctx.resume();
+  const bpm=parseInt(tempoSlider.value);
+  const meter=parseInt($('meterSelect').value)||4;
+  const beatDur=60/bpm;
+  const measureDur=beatDur*meter;   // 1 chord = 1 measure
+  const tot=currentChords.length;
+  let step=0;
+
+  // Beat-indicator: show beats within the measure
+  let beatTimers=[];
+
+  function next(){
+    if(stopFlag){
+      isPlaying=false; playBtn.innerHTML='&#9654; Play';
+      statusBar.textContent='Gestoppt'; statusBar.className='status';
+      lit(-1); litBeat(-1);
+      beatTimers.forEach(clearTimeout); beatTimers=[];
+      return;
+    }
+    const ci=step%tot; lit(ci);
+    beatTimers.forEach(clearTimeout); beatTimers=[];
+
+    scheduleRhythmMeasure(ctx, currentChords[ci], ctx.currentTime, beatDur);
+
+    // Animate beat dots over the measure
+    for(let b=0;b<meter*2;b++){
+      beatTimers.push(setTimeout(()=>{
+        if(!stopFlag) litBeat(ci*2 + (b<2?b:b%2));
+      }, b*(beatDur*0.5)*1000));
+    }
+
+    step++; setTimeout(next, measureDur*1000);
+  }
+  next();
+}
+
+function stopPlayback(){
+  stopFlag=true; isPlaying=false;
+  playBtn.innerHTML='&#9654; Play';
+  statusBar.textContent='Gestoppt'; statusBar.className='status';
+  lit(-1); litBeat(-1);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   UPDATE PROGRESSION / RANDOM
+═══════════════════════════════════════════════════════════════ */
+function tag(g){return `<span class="tag ${g}">${g==='rnd'?'Random':g[0].toUpperCase()+g.slice(1)}</span>`;}
+
+function updateProgression(){
+  const ri=parseInt(keySelect.value), mode=modeSelect.value;
+  const list=getProgList(), prog=list[parseInt(progSelect.value)];
+  if(!prog) return;
+  const eo=styleSelect.value==='jazz'?prog.eo:null;
+  currentChords=buildChords(ri,mode,prog.d,eo);
+  renderChords(currentChords);
+  progNameEl.textContent=prog.n;
+  const exStr=activeExts.size>0?' · Ext: '+[...activeExts].join(', '):'';
+  infoBox.innerHTML=`${tag(prog.g)} <strong>${prog.n}</strong><br>${prog.i}${exStr?'<br><em style="color:#5a5a90">'+exStr+'</em>':''}`;
+  isRandom=false;
+}
+
+function generateRandom(){
+  stopPlayback();
+  const ri=parseInt(keySelect.value), mode=modeSelect.value;
+  const IV=mode==='major'?MjIV:MnIV, Q=mode==='major'?MjQ:MnQ, R=mode==='major'?RMaj:RMin;
+  if(styleSelect.value==='jazz'){
+    const list=mode==='major'?PROGS_JAZZ_MAJ:PROGS_JAZZ_MIN;
+    const prog=list[Math.floor(Math.random()*list.length)];
+    currentChords=buildChords(ri,mode,prog.d,prog.eo);
+    renderChords(currentChords); progNameEl.textContent='Zufällig: '+prog.n;
+    infoBox.innerHTML=`${tag('rnd')} ${tag('jazz')} <strong>${prog.n}</strong><br>${prog.i}`;
+    isRandom=true; return;
+  }
+  const allMaj=[[0,4,5,3],[0,3,4,0],[0,5,3,4],[0,2,3,4],[0,4,3,0],[0,3,5,4],[0,1,4,0],[0,5,1,4],[0,4,5,2,3],[0,2,5,3],[0,3,4,3],[0,3,0,4]];
+  const allMin=[[0,6,5,6],[0,3,6,2],[0,5,2,6],[0,3,4,0],[0,6,5,2],[0,3,5,2],[0,5,6,3],[0,6,3,5]];
+  const degs=(mode==='major'?allMaj:allMin)[Math.floor(Math.random()*(mode==='major'?allMaj.length:allMin.length))];
+  let eo=null;
+  if(activeExts.size>0){
+    eo=degs.map(d=>{
+      const si=typeof d==='number'?((d%7)+7)%7:0; const bq=Q[si]||'';
+      for(const e of activeExts){if(EXT[e]&&EXT[e].c.includes(bq))return e;} return null;
+    });
+  }
+  currentChords=degs.map((d,di)=>{
+    const{ni,bq,rom}=resolveDeg(d,ri,IV,Q,R);
+    let semis,extLabel='';
+    if(eo&&eo[di]&&EXT[eo[di]]&&EXT[eo[di]].c.includes(bq)){semis=EXT[eo[di]].s;extLabel=EXT[eo[di]].l;}
+    else semis=BASE_S[bq]||[0,4,7];
+    return{displayName:noteAt(ni),dispExt:extLabel||(bq==='dim'?'dim':bq),dispSlash:'',slashBassIdx:null,roman:rom,noteIdx:ni,semis,baseQ:bq,extLabel,ivDesc:semis.map(IVD).join(' ')};
+  });
+  // Apply voice leading
+  let prevV=null;
+  currentChords=currentChords.map(c=>{
+    const v=voiceChordWithSlash(c.semis,c.noteIdx,prevV,null); prevV=v;
+    return{...c,voicedMidi:v,invLabel:inversionLabel(c.semis,v,c.noteIdx)};
+  });
+  const rs=degs.map(d=>{const{rom}=resolveDeg(d,ri,IV,Q,R);return rom;}).join(' – ');
+  progNameEl.textContent=`Zufällig: ${rs} (${KEYS[ri]} ${mode==='major'?'Dur':'Moll'})`;
+  infoBox.innerHTML=`${tag('rnd')} <strong>${rs}</strong><br>Tonart: ${KEYS[ri]} ${mode==='major'?'Dur':'Moll'} — mit Stimmführung.`;
+  renderChords(currentChords); isRandom=true;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MIDI EXPORT (uses voiced MIDI notes)
+═══════════════════════════════════════════════════════════════ */
+function varLen(v){const r=[];r.push(v&0x7F);v>>=7;while(v>0){r.unshift((v&0x7F)|0x80);v>>=7;}return r;}
+
+function exportMidi(){
+  if(!currentChords.length){alert('Bitte erst eine Akkordfolge laden.');return;}
+  const bpm=parseInt(tempoSlider.value), us=Math.round(60000000/bpm), tpb=480, ct=tpb*2, vel=78;
+  let evs=[], tick=0;
+  currentChords.forEach(c=>{
+    c.voicedMidi.forEach(n=>{evs.push({tick,type:'on',note:n});evs.push({tick:tick+ct-5,type:'off',note:n});});
+    tick+=ct;
+  });
+  evs.sort((a,b)=>a.tick-b.tick||(a.type==='off'?-1:1));
+  let raw=[], prev=0;
+  evs.forEach(ev=>{const d=ev.tick-prev;prev=ev.tick;raw.push(...varLen(d),ev.type==='on'?0x90:0x80,ev.note,ev.type==='on'?vel:0);});
+  const tmpo=[0x00,0xFF,0x51,0x03,(us>>16)&0xFF,(us>>8)&0xFF,us&0xFF];
+  const eot=[0x00,0xFF,0x2F,0x00];
+  const td=[...tmpo,...raw,...eot], tl=td.length;
+  const hdr=[0x4D,0x54,0x68,0x64,0,0,0,6,0,0,0,1,(tpb>>8)&0xFF,tpb&0xFF];
+  const th=[0x4D,0x54,0x72,0x6B,(tl>>24)&0xFF,(tl>>16)&0xFF,(tl>>8)&0xFF,tl&0xFF];
+  const midi=new Uint8Array([...hdr,...th,...td]);
+  const url=URL.createObjectURL(new Blob([midi],{type:'audio/midi'}));
+  const a=document.createElement('a');a.href=url;
+  a.download=`ChordProg_${KEYS[parseInt(keySelect.value)].replace('/','_')}_${bpm}BPM.mid`;
+  a.click(); URL.revokeObjectURL(url);
+  statusBar.textContent='MIDI exportiert ✓'; statusBar.className='status play';
+  setTimeout(()=>{statusBar.textContent='Bereit';statusBar.className='status';},2200);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CHORD EDITOR
+   Parses user text like "Cm7", "F#maj9", "Bbsus4", "Gdim" etc.
+   into the same chord object structure used by the rest of the app.
+═══════════════════════════════════════════════════════════════ */
+
+// All recognised note names → semitone 0-11
+const NOTE_MAP={
+  'C':0,'C#':1,'Db':1,'D':2,'D#':3,'Eb':3,'E':4,'F':5,
+  'F#':6,'Gb':6,'G':7,'G#':8,'Ab':8,'A':9,'A#':10,'Bb':10,'B':11
+};
+
+// Quality/extension tokens in order of try (longest first to avoid partial matches)
+const QUAL_TOKENS=[
+  // Major-family
+  {t:'maj13',  s:[0,4,7,11,14,21],   l:'maj13',   bq:''},
+  {t:'maj11',  s:[0,4,7,11,14,17],   l:'maj11',   bq:''},
+  {t:'maj9',   s:[0,4,7,11,14],      l:'maj9',    bq:''},
+  {t:'maj7#5', s:[0,4,8,11],         l:'maj7#5',  bq:''},
+  {t:'maj7b5', s:[0,4,6,11],         l:'maj7b5',  bq:''},
+  {t:'maj7',   s:[0,4,7,11],         l:'maj7',    bq:''},
+  {t:'maj6',   s:[0,4,7,9],          l:'6',       bq:''},
+  {t:'maj',    s:[0,4,7],            l:'',        bq:''},
+  // Dominant-altered
+  {t:'7#9#5',  s:[0,4,8,10,13],      l:'7#9#5',   bq:''},
+  {t:'7b9b5',  s:[0,4,6,10,1],       l:'7b9b5',   bq:''},
+  {t:'7#9b5',  s:[0,4,6,10,13],      l:'7#9b5',   bq:''},
+  {t:'7b9#5',  s:[0,4,8,10,1],       l:'7b9#5',   bq:''},
+  {t:'7alt',   s:[0,4,8,10,13],      l:'7alt',    bq:''},
+  {t:'7#9',    s:[0,4,7,10,13],      l:'7#9',     bq:''},
+  {t:'7b9',    s:[0,4,7,10,1],       l:'7b9',     bq:''},
+  {t:'7#5',    s:[0,4,8,10],         l:'7#5',     bq:''},
+  {t:'7b5',    s:[0,4,6,10],         l:'7b5',     bq:''},
+  {t:'13',     s:[0,4,7,10,14,17,21],l:'13',      bq:''},
+  {t:'11',     s:[0,4,7,10,14,17],   l:'11',      bq:''},
+  {t:'9',      s:[0,4,7,10,14],      l:'9',       bq:''},
+  {t:'7',      s:[0,4,7,10],         l:'7',       bq:''},
+  // Minor-family
+  {t:'m13',    s:[0,3,7,10,14,21],   l:'m13',     bq:'m'},
+  {t:'m11',    s:[0,3,7,10,14,17],   l:'m11',     bq:'m'},
+  {t:'m9',     s:[0,3,7,10,14],      l:'m9',      bq:'m'},
+  {t:'m7b5',   s:[0,3,6,10],         l:'m7b5',    bq:'m'},
+  {t:'m7',     s:[0,3,7,10],         l:'m7',      bq:'m'},
+  {t:'m6',     s:[0,3,7,9],          l:'m6',      bq:'m'},
+  {t:'mM7',    s:[0,3,7,11],         l:'mMaj7',   bq:'m'},
+  {t:'mMaj9',  s:[0,3,7,11,14],      l:'mMaj9',   bq:'m'},
+  {t:'madd9',  s:[0,3,7,14],         l:'madd9',   bq:'m'},
+  {t:'min',    s:[0,3,7],            l:'m',       bq:'m'},
+  // Diminished / augmented
+  {t:'dim7',   s:[0,3,6,9],          l:'dim7',    bq:'dim'},
+  {t:'dim',    s:[0,3,6],            l:'dim',     bq:'dim'},
+  {t:'aug9',   s:[0,4,8,10,14],      l:'aug9',    bq:''},
+  {t:'aug7',   s:[0,4,8,10],         l:'7#5',     bq:''},
+  {t:'aug',    s:[0,4,8],            l:'aug',     bq:''},
+  {t:'+',      s:[0,4,8],            l:'aug',     bq:''},
+  // Suspended
+  {t:'sus4',   s:[0,5,7],            l:'sus4',    bq:''},
+  {t:'sus2',   s:[0,2,7],            l:'sus2',    bq:''},
+  {t:'sus',    s:[0,5,7],            l:'sus4',    bq:''},
+  // Misc
+  {t:'add9',   s:[0,4,7,14],         l:'add9',    bq:''},
+  {t:'add11',  s:[0,4,7,17],         l:'add11',   bq:''},
+  {t:'6',      s:[0,4,7,9],          l:'6',       bq:''},
+  {t:'5',      s:[0,7],              l:'5',       bq:''},
+  {t:'m',      s:[0,3,7],            l:'m',       bq:'m'},
+];
+
+function parseNoteName(str){
+  // Returns {noteIdx, rest} or null. Tries 2-char names before 1-char.
+  const s=str[0].toUpperCase()+(str[1]||'');
+  for(const [name,idx] of Object.entries(NOTE_MAP)){
+    if(name.length===2&&(s.startsWith(name))){
+      return{noteIdx:idx,rest:str.slice(2)};
+    }
+  }
+  const c=str[0].toUpperCase();
+  if(NOTE_MAP[c]!==undefined) return{noteIdx:NOTE_MAP[c],rest:str.slice(1)};
+  return null;
+}
+
+function parseChordText(text){
+  const raw=text.trim();
+  if(!raw) return null;
+
+  // Split off slash-bass notation:  "Cmaj7/E"  →  chordPart="Cmaj7"  bassPart="E"
+  let chordPart=raw, bassStr=null;
+  const slashIdx=raw.lastIndexOf('/');
+  if(slashIdx>0){
+    chordPart=raw.slice(0,slashIdx).trim();
+    bassStr  =raw.slice(slashIdx+1).trim();
+  }
+
+  // Parse root of chord
+  const rootParse=parseNoteName(chordPart);
+  if(!rootParse) return null;
+  const{noteIdx, rest}=rootParse;
+
+  // Match quality token (longest first)
+  let matched=null;
+  const restLow=rest.toLowerCase();
+  for(const qt of QUAL_TOKENS){
+    if(restLow===qt.t.toLowerCase()){matched=qt;break;}
+  }
+  if(!matched){
+    for(const qt of QUAL_TOKENS){
+      if(restLow.startsWith(qt.t.toLowerCase())){matched=qt;break;}
+    }
+  }
+  if(!matched&&rest==='') matched={t:'',s:[0,4,7],l:'',bq:''};
+  if(!matched) return null;
+
+  // Parse slash bass note (if any)
+  let slashBassIdx=null, slashBassName=null;
+  if(bassStr){
+    const bp=parseNoteName(bassStr);
+    if(bp&&bp.rest===''){ slashBassIdx=bp.noteIdx; slashBassName=KS[slashBassIdx]; }
+  }
+
+  const displayName=KS[noteIdx];
+  const dispExt=matched.l||(matched.bq==='dim'?'dim':matched.bq);
+  const dispSlash=slashBassName?('/'+slashBassName):'';
+
+  return{
+    displayName,
+    dispExt,
+    dispSlash,          // e.g. "/E" or ""
+    roman:'?',
+    noteIdx,
+    semis:matched.s,
+    baseQ:matched.bq,
+    extLabel:matched.l,
+    slashBassIdx,       // MIDI pitch class of forced bass, or null
+    slashBassName,
+    ivDesc:matched.s.map(IVD).join(' ')+(slashBassName?' /'+slashBassName:''),
+    voicedMidi:null,
+    invLabel:'',
+    custom:true
+  };
+}
+
+function previewChordText(text){
+  const c=parseChordText(text);
+  if(!c) return '<span style="color:#ef4444">Unbekannter Akkord</span>';
+  const slash=c.slashBassName?`<span style="color:#60a0c0">/${c.slashBassName}</span>`:'';
+  return `<strong style="color:#c4b5fd">${c.displayName}${c.dispExt}</strong>${slash} `+
+    `<span style="color:#6060a0">${c.ivDesc}</span>`;
+}
+
+// Suggestions shown in popover — grouped
+const CHORD_SUGS_QUALITY=['maj7','m7','7','maj9','m9','9','add9','sus2','sus4','dim','dim7','aug','m7b5','6','m6','11','13'];
+const CHORD_SUGS_ALT=['7#9','7b9','7#5','7b5','7alt','7#9#5','7b9b5','maj7#5','maj7b5','mMaj7'];
+
+let editorOpen=false, editorIdx=-1;
+
+function openEditor(idx, anchorEl){
+  closeEditor();
+  editorOpen=true; editorIdx=idx;
+  anchorEl.classList.add('editing');
+
+  // Build popover
+  const pop=document.createElement('div');
+  pop.className='edit-popover'; pop.id='editPop';
+
+  const chord=currentChords[idx];
+  const currentVal=chord.displayName+(chord.dispExt||'')+(chord.dispSlash||'');
+
+  pop.innerHTML=`<div class="ep-arrow"></div>`+
+    `<div class="ep-title">Akkord bearbeiten (${idx+1})</div>`+
+    `<input class="ep-input" id="epInput" type="text" value="${currentVal}" placeholder="z.B. G7b9/B, Fmaj7, C/E" autocomplete="off" spellcheck="false">`+
+    `<div class="ep-hint"><code>Note + Qualität</code> · Slash: <code>G7/B</code> · Alt: <code>C7#9</code> <code>G7b5</code> <code>E7alt</code></div>`+
+    `<div class="ep-preview" id="epPreview">${previewChordText(currentVal)}</div>`+
+
+    `<div class="ep-group-label">Grundtöne</div>`+
+    `<div class="ep-suggestions" id="epNotes"></div>`+
+
+    `<div class="ep-group-label">Qualität</div>`+
+    `<div class="ep-suggestions" id="epQuals"></div>`+
+
+    `<div class="ep-group-label">Alterierungen</div>`+
+    `<div class="ep-suggestions" id="epAlts"></div>`+
+
+    `<div class="ep-group-label">Slash-Basston (/ Note)</div>`+
+    `<div class="ep-suggestions" id="epSlash"></div>`+
+
+    `<div class="ep-buttons">`+
+      `<button class="ep-cancel" onclick="closeEditor()">Abbrechen</button>`+
+      `<button class="ep-ok" onclick="commitEdit()">&#10003; Übernehmen</button>`+
+    `</div>`;
+
+  document.body.appendChild(pop);
+  positionPopover(pop, anchorEl);
+
+  const ov=document.createElement('div');
+  ov.className='edit-overlay'; ov.id='editOv';
+  ov.onclick=()=>closeEditor();
+  document.body.appendChild(ov);
+
+  function getRoot(){
+    const p=parseChordText($('epInput').value);
+    return p?p.displayName:(currentChords[idx].displayName);
+  }
+  function getQual(){
+    const p=parseChordText($('epInput').value);
+    return p?(p.dispExt||''):'';
+  }
+  function setInputAndRefresh(val){
+    const inp=$('epInput'); inp.value=val;
+    inp.dispatchEvent(new Event('input')); inp.focus();
+  }
+
+  // Note chips
+  const noteWrap=$('epNotes');
+  ['C','D','E','F','G','A','B','C#','Eb','F#','Ab','Bb'].forEach(n=>{
+    const b=document.createElement('button'); b.className='ep-sug'; b.textContent=n;
+    b.onclick=e=>{e.stopPropagation(); const inp=$('epInput'); const p=parseChordText(inp.value); const q=p?(p.dispExt||''):''; const sl=p?(p.dispSlash||''):''; setInputAndRefresh(n+q+sl);};
+    noteWrap.appendChild(b);
+  });
+
+  // Quality chips
+  const qualWrap=$('epQuals');
+  CHORD_SUGS_QUALITY.forEach(q=>{
+    const b=document.createElement('button'); b.className='ep-sug'; b.textContent=q;
+    b.onclick=e=>{e.stopPropagation(); const p=parseChordText($('epInput').value); const sl=p?(p.dispSlash||''):''; setInputAndRefresh(getRoot()+q+sl);};
+    qualWrap.appendChild(b);
+  });
+
+  // Alteration chips
+  const altWrap=$('epAlts');
+  CHORD_SUGS_ALT.forEach(q=>{
+    const b=document.createElement('button'); b.className='ep-sug'; b.textContent=q;
+    b.onclick=e=>{e.stopPropagation(); const p=parseChordText($('epInput').value); const sl=p?(p.dispSlash||''):''; setInputAndRefresh(getRoot()+q+sl);};
+    altWrap.appendChild(b);
+  });
+
+  // Slash bass chips
+  const slashWrap=$('epSlash');
+  const noSlash=document.createElement('button'); noSlash.className='ep-sug'; noSlash.textContent='– kein –';
+  noSlash.onclick=e=>{e.stopPropagation(); const p=parseChordText($('epInput').value); if(p) setInputAndRefresh(p.displayName+(p.dispExt||''));};
+  slashWrap.appendChild(noSlash);
+  ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'].forEach(n=>{
+    const b=document.createElement('button'); b.className='ep-sug'; b.textContent='/'+n;
+    b.onclick=e=>{e.stopPropagation(); const p=parseChordText($('epInput').value); const base=p?p.displayName+( p.dispExt||''):getRoot(); setInputAndRefresh(base+'/'+n);};
+    slashWrap.appendChild(b);
+  });
+
+  const inp=$('epInput');
+  inp.addEventListener('input',()=>{
+    $('epPreview').innerHTML=previewChordText(inp.value);
+    inp.classList.toggle('err',!parseChordText(inp.value)&&inp.value.length>0);
+  });
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();commitEdit();}
+    if(e.key==='Escape'){e.preventDefault();closeEditor();}
+  });
+  requestAnimationFrame(()=>{inp.focus();inp.select();});
+}
+
+function positionPopover(pop, anchor){
+  const ar=anchor.getBoundingClientRect();
+  const pw=360;
+  let left=ar.left+ar.width/2-pw/2;
+  left=Math.max(8, Math.min(left, window.innerWidth-pw-8));
+  let top=ar.bottom+12;
+  if(top+480>window.innerHeight) top=Math.max(8,ar.top-490);
+  pop.style.left=left+'px';
+  pop.style.top=top+'px';
+  pop.style.width=pw+'px';
+  const arrow=pop.querySelector('.ep-arrow');
+  if(arrow){
+    const arrowX=ar.left+ar.width/2-left;
+    arrow.style.left=Math.max(16,Math.min(pw-16,arrowX))+'px';
+    arrow.style.transform='translateX(-50%)';
+    if(top<ar.bottom){
+      arrow.style.top='-8px'; arrow.style.borderBottom='8px solid #a78bfa'; arrow.style.borderTop='none';
+    } else {
+      arrow.style.top='auto'; arrow.style.bottom='-8px'; arrow.style.borderTop='8px solid #a78bfa'; arrow.style.borderBottom='none';
+    }
+  }
+}
+
+function closeEditor(){
+  const pop=$('editPop'), ov=$('editOv');
+  if(pop) pop.remove();
+  if(ov)  ov.remove();
+  document.querySelectorAll('.chord-box.editing').forEach(b=>b.classList.remove('editing'));
+  editorOpen=false; editorIdx=-1;
+}
+
+function commitEditor(){ commitEdit(); }
+
+function commitEdit(){
+  const inp=$('epInput');
+  if(!inp) return;
+  const parsed=parseChordText(inp.value);
+  if(!parsed){ inp.classList.add('err'); return; }
+
+  // Recompute voice leading for this chord relative to neighbours
+  const prev=editorIdx>0?currentChords[editorIdx-1].voicedMidi:null;
+  parsed.voicedMidi=voiceChordWithSlash(parsed.semis, parsed.noteIdx, prev, parsed.slashBassIdx||null);
+  parsed.invLabel=parsed.slashBassIdx!=null?('/'+KS[parsed.slashBassIdx]):inversionLabel(parsed.semis, parsed.voicedMidi, parsed.noteIdx);
+
+  // Replace in array
+  currentChords[editorIdx]=parsed;
+
+  // Re-apply voice leading forward from this point
+  reapplyVoiceLeadingFrom(editorIdx);
+
+  closeEditor();
+  renderChords(currentChords);
+  progNameEl.textContent='Benutzerdefiniert (editiert)';
+  isRandom=false;
+}
+
+function reapplyVoiceLeadingFrom(startIdx){
+  for(let i=startIdx; i<currentChords.length; i++){
+    const prev=i>0?currentChords[i-1].voicedMidi:null;
+    const c=currentChords[i];
+    c.voicedMidi=voiceChordWithSlash(c.semis, c.noteIdx, prev, c.slashBassIdx||null);
+    c.invLabel=c.slashBassIdx!=null?('/'+KS[c.slashBassIdx]):inversionLabel(c.semis, c.voicedMidi, c.noteIdx);
+  }
+}
+
+function deleteChord(idx, event){
+  event.stopPropagation();
+  closeEditor();
+  if(currentChords.length<=1){ statusBar.textContent='Mindestens 1 Akkord erforderlich.'; statusBar.className='status warn'; setTimeout(()=>{statusBar.textContent='Bereit';statusBar.className='status';},1800); return; }
+  currentChords.splice(idx,1);
+  reapplyVoiceLeadingFrom(Math.max(0,idx-1));
+  renderChords(currentChords);
+  progNameEl.textContent='Benutzerdefiniert (editiert)';
+  isRandom=false;
+}
+
+function addChord(){
+  closeEditor();
+  // Default: copy last chord's root but major triad
+  const last=currentChords[currentChords.length-1];
+  const newChord=parseChordText(last?last.displayName:'C');
+  if(!newChord) return;
+  const prev=last?last.voicedMidi:null;
+  newChord.voicedMidi=voiceChord(newChord.semis, newChord.noteIdx, prev);
+  newChord.invLabel=inversionLabel(newChord.semis, newChord.voicedMidi, newChord.noteIdx);
+  currentChords.push(newChord);
+  renderChords(currentChords);
+  progNameEl.textContent='Benutzerdefiniert (editiert)';
+  isRandom=false;
+  // Auto-open editor for the new chord
+  const newIdx=currentChords.length-1;
+  const newBox=$('cb'+newIdx);
+  if(newBox) setTimeout(()=>openEditor(newIdx,newBox),50);
+}
+
+
+tempoSlider.addEventListener('input',()=>tempoValEl.textContent=tempoSlider.value+' BPM');
+keySelect.addEventListener('change',()=>isRandom?generateRandom():updateProgression());
+modeSelect.addEventListener('change',()=>{buildProgSelect();updateProgression();});
+styleSelect.addEventListener('change',()=>{buildProgSelect();updateProgression();});
+progSelect.addEventListener('change',()=>{stopPlayback();updateProgression();});
+$('presetSelect').addEventListener('change',()=>{_noteMap=null;sampleCache={};});
+
+buildRhythmSelect();
+buildProgSelect();
+updateProgression();
+</script>
+</body>
+</html>
