@@ -207,7 +207,7 @@ input[type=range]{flex:1;min-width:100px;accent-color:#a78bfa;cursor:pointer}
   <div class="sf2-hint">
     <strong>Einrichtung:</strong> Lege deine <code>.sf2</code>-Datei in den Ordner <code>soundfonts/</code> relativ zur HTML-Datei.
     Starte einen lokalen Webserver (<code>npx serve .</code> oder VS Code Live Server), damit der Browser die Datei laden kann.
-    Empfohlen: <code>FluidR3_GM_GS.sf2</code>, <code>GeneralUser_GS.sf2</code>, <code>MuseScore_General.sf2</code>
+    Empfohlen: <code>GM_Roland.sf2</code>, <code>GeneralUser_GS.sf2</code>, <code>MuseScore_General.sf2</code>
   </div>
 
   <hr class="divider">
@@ -556,7 +556,8 @@ function buildNoteMap(sf2, presetIdx){
 
       /* Defaults per SF2 spec */
       let keyLo=0, keyHi=127, sampleRef=-1, overridePitch=-1;
-      let volRelease=-1200; // timecents default ≈ 0.5s release
+      let volRelease=-1200; // timecents default ≈ 0.5s
+      let volDecay=-1200;   // timecents
 
       for(let gi=igStart;gi<igEnd;gi++){
         const g=sf2.igens[gi];
@@ -564,6 +565,7 @@ function buildNoteMap(sf2, presetIdx){
           case 43: keyLo=g.amountU&0xFF; keyHi=(g.amountU>>8)&0xFF; break;
           case 53: sampleRef=g.amountU; break;
           case 58: overridePitch=g.amount; break;
+          case 35: volDecay=g.amount; break;
           case 38: volRelease=g.amount; break;
         }
       }
@@ -573,7 +575,11 @@ function buildNoteMap(sf2, presetIdx){
       if(!sh||sh.type===0||sh.end<=sh.start) continue; // EOS or empty
 
       const rootKey=(overridePitch>=0&&overridePitch<=127) ? overridePitch : sh.originalPitch;
-      const relSec =Math.min(4, Math.max(0.05, Math.pow(2, volRelease/1200)));
+      // Use the longer of release or decay — many SF2 fonts specify decay but not release.
+      // timecents to seconds: 2^(tc/1200). -1200 tc = 0.5s, 0 tc = 1s, 1200 tc = 2s.
+      // Apply a minimum of 1.5s so piano/string notes always have a musical tail.
+      const tcBest = Math.max(volRelease, volDecay);
+      const relSec = Math.max(1.5, Math.min(12, Math.pow(2, tcBest/1200)));
 
       for(let k=keyLo;k<=Math.min(keyHi,127);k++){
         if(!map[k]) map[k]={sh, rootKey, relSec};
@@ -616,7 +622,8 @@ async function loadSF2(){
     chunks.forEach(c=>{out.set(c,off);off+=c.length;});
 
     SF2=parseSF2(ab);
-    sampleCache={};
+    sampleCache={}; drumSampleCache={};
+    _noteMap=null; _noteMapPreset=-1;
 
     pgFill.style.width='100%';
     setTimeout(()=>{pgBar.classList.remove('on');pgFill.style.width='0%';},600);
@@ -694,30 +701,38 @@ function playSF2Note(ctx, midiNote, startTime, duration, masterGain){
   src.buffer=entry.audioBuf;
   src.playbackRate.value=Math.pow(2,(note-entry.rootKey)/12);
 
-  // Enable looping if the sample has valid loop points (sustain loop)
+  // ── Sustain loop ──────────────────────────────────────────────
+  // Enable looping so the note sustains for its full musical duration.
+  // Without looping, short samples (e.g. 0.3s piano) are cut off early.
   const sh=entry.sh;
-  if(sh && sh.loopStart < sh.loopEnd && sh.loopEnd <= sh.end - sh.start && sh.type!==0){
-    src.loop=true;
-    src.loopStart= (sh.loopStart - sh.start) / sh.sampleRate;
-    src.loopEnd  = (sh.loopEnd   - sh.start) / sh.sampleRate;
+  const hasLoop = sh && sh.loopStart < sh.loopEnd
+                     && sh.loopEnd   <  (sh.end - sh.start)
+                     && sh.type !== 0;
+  if(hasLoop){
+    src.loop      = true;
+    src.loopStart = (sh.loopStart - sh.start) / sh.sampleRate;
+    src.loopEnd   = (sh.loopEnd   - sh.start) / sh.sampleRate;
   }
 
-  // Natural release: at least 0.3s for piano, max 8s — use font value when available
-  // volRelease default in SF2 is -12000 timecents (instant) — override with 0.5s minimum
-  const naturalRelease = Math.max(0.3, Math.min(8, entry.relSec));
+  // ── Release time ─────────────────────────────────────────────
+  // SF2 volEnvRelease default was stored as -1200 timecents ≈ 0.5s.
+  // Use at least 0.8s so piano notes don't pop; cap at 10s.
+  const relSec = Math.max(0.8, Math.min(10, entry.relSec));
 
-  const env=ctx.createGain();
-  // Attack: instant (sample already has attack baked in)
-  env.gain.setValueAtTime(1, startTime);
-  // Hold at full volume for the duration of the note
-  env.gain.setValueAtTime(1, startTime + duration);
-  // Natural release after note-off
-  env.gain.exponentialRampToValueAtTime(0.0001, startTime + duration + naturalRelease);
+  // ── Envelope ─────────────────────────────────────────────────
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, startTime);            // avoid click on start
+  env.gain.linearRampToValueAtTime(1.0, startTime + 0.004); // fast attack (4ms)
+  env.gain.setValueAtTime(1.0, startTime + duration);   // hold at full volume
+  // Exponential release — must start from a non-zero value
+  env.gain.setValueAtTime(1.0, startTime + duration);
+  env.gain.exponentialRampToValueAtTime(0.0001, startTime + duration + relSec);
 
-  src.connect(env); env.connect(masterGain);
+  src.connect(env);
+  env.connect(masterGain);
   src.start(startTime);
-  // Stop slightly after the gain has faded to silence
-  src.stop(startTime + duration + naturalRelease + 0.05);
+  // Hard stop well after the release has faded to silence
+  src.stop(startTime + duration + relSec + 0.1);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1481,22 +1496,17 @@ function scheduleRhythmMeasure(ctx, chord, measureStart, beatDur){
   measure.forEach((ev, evIdx)=>{
     const evTime=measureStart+ev.b*beatDur;
 
-    // Musical duration: for SF2, let notes ring until the next event on the same
-    // voice group (or end of measure) — full legato/sustain.
-    // For synth, use the pattern's articulation value (ev.d) for staccato feel.
+    // Duration calculation:
+    // SF2:   Each note rings from its start to the END of the measure.
+    //        The natural loop + exponential release in playSF2Note handles
+    //        the musical decay — we never want a hard cut in the middle.
+    // Synth: Use the pattern's articulation value (ev.d) for staccato feel.
     let evDur;
     if(SF2){
-      // Find the next event beat position (same ni group or any) to determine note length
-      let nextBeat=measureBeats;
-      for(let j=evIdx+1;j<measure.length;j++){
-        if(measure[j].ni===ev.ni||ev.ni==='all'||measure[j].ni==='all'){
-          nextBeat=measure[j].b; break;
-        }
-      }
-      // Ring for the full gap to next event, minus a tiny breath (30ms)
-      evDur=Math.max(ev.d*beatDur*0.5, (nextBeat-ev.b)*beatDur - 0.03);
+      evDur = (measureBeats - ev.b) * beatDur - 0.02; // ring to end of measure
+      evDur = Math.max(evDur, 0.1);
     } else {
-      evDur=ev.d*beatDur*0.95;
+      evDur = ev.d * beatDur * 0.95;
     }
     const notes=resolveNoteIdx(ev.ni, voiced);
     if(ev.t==='chord'){
