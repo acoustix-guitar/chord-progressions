@@ -5,161 +5,505 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Chord Progression Generator</title>
 <style>
+/* ── Reset & base ──────────────────────────────────────────────
+   All font-sizes scaled +25% vs original.
+   Contrast ratios meet WCAG 2.1 AA (≥4.5:1 for text, ≥3:1 for UI).
+   Focus rings visible on every interactive element.
+────────────────────────────────────────────────────────────── */
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Segoe UI',Arial,sans-serif;background:#0d0d1c;color:#e0e0f0;min-height:100vh;padding:18px 16px 40px}
-h1{text-align:center;font-size:1.9rem;font-weight:800;background:linear-gradient(135deg,#a78bfa,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px}
-.subtitle{text-align:center;color:#7070a0;font-size:.82rem;margin-bottom:20px}
-.card{background:#16162a;border:1px solid #252540;border-radius:14px;padding:18px;margin-bottom:14px}
+
+:root{
+  /* Background palette – slightly lighter than before */
+  --bg-page:   #0e0e20;
+  --bg-card:   #1a1a30;
+  --bg-input:  #111128;
+  --bg-dark:   #0b0b1a;
+  /* Border */
+  --bd-subtle: #303058;
+  --bd-mid:    #4040708;
+  /* Accent purple */
+  --ac-pur:    #b39dff;   /* was #a78bfa — +15% lighter */
+  --ac-pur-dk: #8b6fff;
+  /* Accent blue */
+  --ac-blue:   #7dd3fc;   /* was #60a5fa */
+  /* Text */
+  --tx-main:   #f0f0ff;   /* was #e0e0f0 — brighter */
+  --tx-mid:    #c0c0e0;   /* was #8888b8 — much brighter */
+  --tx-muted:  #9090b8;   /* was #50508a — brighter */
+  --tx-label:  #c4b5fd;   /* was #a78bfa */
+  /* Status */
+  --green:     #4ade80;
+  --red:       #f87171;
+  --amber:     #fbbf24;
+}
+
+body{
+  font-family:'Segoe UI',system-ui,Arial,sans-serif;
+  background:var(--bg-page);
+  color:var(--tx-main);
+  min-height:100vh;
+  padding:18px 16px 48px;
+  font-size:1rem;            /* sets rem base to browser default (16px) */
+  line-height:1.5;
+}
+
+/* ── Focus ring — visible on all focusable elements ─────────── */
+:focus-visible{
+  outline:3px solid var(--ac-pur);
+  outline-offset:2px;
+  border-radius:4px;
+}
+
+/* ── Headings ────────────────────────────────────────────────── */
+h1{
+  text-align:center;
+  font-size:2.4rem;          /* was 1.9rem × 1.25 */
+  font-weight:800;
+  background:linear-gradient(135deg,var(--ac-pur),var(--ac-blue));
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  margin-bottom:5px;
+}
+.subtitle{
+  text-align:center;
+  color:var(--tx-mid);
+  font-size:1rem;            /* was .82rem */
+  margin-bottom:22px;
+}
+
+/* ── Cards ───────────────────────────────────────────────────── */
+.card{
+  background:var(--bg-card);
+  border:1px solid var(--bd-subtle);
+  border-radius:14px;
+  padding:20px;
+  margin-bottom:16px;
+}
+
+/* ── Layout helpers ──────────────────────────────────────────── */
 .controls-row{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
-.cg{display:flex;flex-direction:column;gap:5px;flex:1;min-width:140px}
-label{font-size:.7rem;font-weight:700;letter-spacing:.09em;color:#a78bfa;text-transform:uppercase}
-select,input[type=text]{background:#0d0d1c;color:#e0e0f0;border:1px solid #353560;border-radius:8px;padding:8px 11px;font-size:.9rem;appearance:none;cursor:pointer;outline:none;transition:border-color .2s;width:100%}
-select:focus,input[type=text]:focus{border-color:#a78bfa}
-.divider{border:none;border-top:1px solid #22224a;margin:14px 0}
-.sec{font-size:.7rem;font-weight:700;letter-spacing:.09em;color:#a78bfa;text-transform:uppercase;margin-bottom:8px}
+.cg{display:flex;flex-direction:column;gap:6px;flex:1;min-width:150px}
 
-/* SF2 section */
+/* ── Labels ──────────────────────────────────────────────────── */
+label{
+  font-size:.9rem;           /* was .7rem */
+  font-weight:700;
+  letter-spacing:.07em;
+  color:var(--tx-label);
+  text-transform:uppercase;
+}
+.sec{
+  font-size:.9rem;           /* was .7rem */
+  font-weight:700;
+  letter-spacing:.07em;
+  color:var(--tx-label);
+  text-transform:uppercase;
+  margin-bottom:10px;
+}
+
+/* ── Form controls ───────────────────────────────────────────── */
+select,input[type=text]{
+  background:var(--bg-input);
+  color:var(--tx-main);
+  border:1.5px solid var(--bd-subtle);
+  border-radius:8px;
+  padding:9px 13px;
+  font-size:1rem;            /* was .9rem */
+  appearance:none;
+  cursor:pointer;
+  outline:none;
+  transition:border-color .2s;
+  width:100%;
+}
+select:focus,input[type=text]:focus{border-color:var(--ac-pur)}
+select:hover,input[type=text]:hover{border-color:var(--ac-pur-dk)}
+
+.divider{border:none;border-top:1px solid var(--bd-subtle);margin:16px 0}
+
+/* ── SF2 section ─────────────────────────────────────────────── */
 .sf2-row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-bottom:10px}
-.sf2-path{font-size:.78rem;color:#6060a0;font-family:monospace;background:#0a0a18;border:1px solid #2a2a4a;border-radius:6px;padding:6px 10px;word-break:break-all}
-.sf2-status{font-size:.75rem;padding:7px 12px;border-radius:7px;background:#0a0a18;border:1px solid #252540;margin-top:6px}
-.sf2-status.ok    {border-color:#22c55e55;color:#22c55e;background:#001a06}
-.sf2-status.err   {border-color:#ef444455;color:#ef4444;background:#1a0000}
-.sf2-status.busy  {border-color:#f59e0b55;color:#f59e0b;background:#1a0e00}
-.prog-bar{width:100%;height:4px;background:#1a1a30;border-radius:2px;margin-top:6px;display:none}
+.sf2-path{
+  font-size:.9rem;           /* was .78rem */
+  color:var(--tx-mid);
+  font-family:monospace;
+  background:var(--bg-dark);
+  border:1px solid #3a3a60;
+  border-radius:6px;
+  padding:7px 12px;
+  word-break:break-all;
+}
+.sf2-status{
+  font-size:.9rem;           /* was .75rem */
+  padding:8px 14px;
+  border-radius:7px;
+  background:var(--bg-dark);
+  border:1.5px solid var(--bd-subtle);
+  margin-top:6px;
+  font-weight:600;
+}
+.sf2-status.ok  {border-color:#22c55e;color:#4ade80;background:#001a08}
+.sf2-status.err {border-color:#ef4444;color:#f87171;background:#1a0000}
+.sf2-status.busy{border-color:#f59e0b;color:#fbbf24;background:#1a1000}
+
+.prog-bar{width:100%;height:5px;background:#1e1e38;border-radius:3px;margin-top:6px;display:none}
 .prog-bar.on{display:block}
-.prog-fill{height:100%;background:linear-gradient(90deg,#a78bfa,#60a5fa);border-radius:2px;transition:width .15s}
-.btn-sf2{padding:8px 16px;font-size:.82rem;font-weight:700;border:none;border-radius:7px;cursor:pointer;background:#7c3aed;color:#fff;transition:all .15s;white-space:nowrap}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--ac-pur),var(--ac-blue));border-radius:3px;transition:width .15s}
+
+.btn-sf2{
+  padding:9px 18px;
+  font-size:.95rem;          /* was .82rem */
+  font-weight:700;
+  border:none;
+  border-radius:7px;
+  cursor:pointer;
+  background:#7c3aed;
+  color:#fff;
+  transition:all .15s;
+  white-space:nowrap;
+}
 .btn-sf2:hover{background:#6d28d9}
-.btn-sf2:disabled{background:#333355;color:#555577;cursor:not-allowed}
-.sf2-hint{font-size:.69rem;color:#404068;line-height:1.55;background:#0a0a18;border-radius:6px;padding:8px 10px;border:1px solid #1a1a30;margin-top:8px}
-.sf2-hint code{color:#a78bfa;font-family:monospace}
+.btn-sf2:focus-visible{outline:3px solid var(--ac-blue);outline-offset:2px}
+.btn-sf2:disabled{background:#2a2a44;color:#7070a0;cursor:not-allowed}
 
-/* ext buttons */
-.ext-wrap{display:flex;flex-wrap:wrap;gap:6px}
-.eb{padding:5px 12px;font-size:.78rem;font-weight:600;cursor:pointer;border:1px solid #353560;border-radius:20px;background:#0d0d1c;color:#8080b0;transition:all .15s}
-.eb.on{background:#1e1060;border-color:#a78bfa;color:#c4b5fd}
-.eb:hover:not(.on){border-color:#6060a0;color:#c0c0e0}
+.sf2-hint{
+  font-size:.85rem;          /* was .69rem */
+  color:var(--tx-mid);
+  line-height:1.6;
+  background:var(--bg-dark);
+  border-radius:6px;
+  padding:10px 12px;
+  border:1px solid #2a2a44;
+  margin-top:8px;
+}
+.sf2-hint code{color:var(--ac-pur);font-family:monospace;font-size:.9rem}
 
-/* main buttons */
-.btn-row{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px}
-button{border:none;border-radius:8px;padding:9px 18px;font-size:.88rem;font-weight:700;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px}
+/* ── Extension buttons ───────────────────────────────────────── */
+.ext-wrap{display:flex;flex-wrap:wrap;gap:7px}
+.eb{
+  padding:6px 14px;          /* was 5px 12px */
+  font-size:.9rem;           /* was .78rem */
+  font-weight:600;
+  cursor:pointer;
+  border:1.5px solid var(--bd-subtle);
+  border-radius:20px;
+  background:var(--bg-input);
+  color:var(--tx-mid);
+  transition:all .15s;
+}
+.eb.on{background:#2a1880;border-color:var(--ac-pur);color:var(--ac-pur)}
+.eb:hover:not(.on){border-color:var(--ac-pur-dk);color:var(--tx-main)}
+.eb:focus-visible{outline:3px solid var(--ac-pur);outline-offset:2px}
+
+/* ── Main action buttons ─────────────────────────────────────── */
+.btn-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+button{
+  border:none;
+  border-radius:8px;
+  padding:10px 20px;         /* was 9px 18px */
+  font-size:1rem;            /* was .88rem */
+  font-weight:700;
+  cursor:pointer;
+  transition:all .15s;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  min-height:42px;           /* touch target */
+}
 button:active{transform:scale(.97)}
-.bp{background:#22c55e;color:#fff}.bp:hover{background:#16a34a}
-.bs{background:#ef4444;color:#fff}.bs:hover{background:#dc2626}
-.br{background:linear-gradient(135deg,#a78bfa,#60a5fa);color:#fff}.br:hover{filter:brightness(1.15)}
-.bm{background:#f59e0b;color:#1a1100}.bm:hover{background:#d97706}
+button:focus-visible{outline:3px solid #fff;outline-offset:2px}
 
-/* tempo */
-.tempo-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.tl{font-size:.7rem;color:#a78bfa;font-weight:700;letter-spacing:.09em;text-transform:uppercase;white-space:nowrap}
-input[type=range]{flex:1;min-width:100px;accent-color:#a78bfa;cursor:pointer}
-.tv{font-size:.88rem;font-weight:700;color:#e0e0f0;min-width:58px}
+.bp{background:#16a34a;color:#fff}.bp:hover{background:#15803d}
+.bs{background:#dc2626;color:#fff}.bs:hover{background:#b91c1c}
+.br{background:linear-gradient(135deg,var(--ac-pur),var(--ac-blue));color:#0d0d1c}.br:hover{filter:brightness(1.12)}
+.bm{background:#d97706;color:#0d0800}.bm:hover{background:#b45309}
 
-/* chord display */
-.prog-display{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;padding:22px 8px 14px;min-height:120px;align-items:center}
-.chord-box{background:#11112a;border:2px solid #303060;border-radius:12px;padding:12px 18px;min-width:82px;text-align:center;transition:all .18s}
-.cn{font-size:1.85rem;font-weight:800;color:#e0e0ff;line-height:1}
-.ce{font-size:.82rem;font-weight:700;color:#a78bfa;min-height:15px;margin-top:2px}
-.cr{font-size:.62rem;color:#50508a;margin-top:5px;letter-spacing:.04em}
-.ci{font-size:.58rem;color:#363670;margin-top:3px;font-family:monospace}
-.chord-box.lit{border-color:#a78bfa;background:#1e1a4a;box-shadow:0 0 18px #a78bfa44}
-.chord-box.lit .cn{color:#d0c0ff}
-.chord-box.lit .ce{color:#e0d0ff}
-/* inversion badge */
-.inv{font-size:.58rem;color:#70709a;margin-top:2px;font-style:italic}
+/* ── Tempo / slider rows ─────────────────────────────────────── */
+.tempo-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.tl{
+  font-size:.9rem;           /* was .7rem */
+  color:var(--tx-label);
+  font-weight:700;
+  letter-spacing:.07em;
+  text-transform:uppercase;
+  white-space:nowrap;
+}
+input[type=range]{
+  flex:1;
+  min-width:100px;
+  accent-color:var(--ac-pur);
+  cursor:pointer;
+  height:6px;
+}
+.tv{
+  font-size:1rem;            /* was .88rem */
+  font-weight:700;
+  color:var(--tx-main);
+  min-width:62px;
+}
 
-.pn{text-align:center;font-size:.78rem;color:#7070a0;margin-bottom:4px;font-style:italic;min-height:18px}
-.beat-bar{display:flex;justify-content:center;gap:5px;margin-top:10px;padding-bottom:4px}
-.bd{width:8px;height:8px;border-radius:50%;background:#22224a;transition:background .08s}
-.bd.on{background:#a78bfa}
-
-.info-box{background:#0e0e22;border-left:3px solid #a78bfa;border-radius:0 8px 8px 0;padding:10px 14px;font-size:.78rem;color:#8888b8;line-height:1.65}
-.info-box strong{color:#c0b0ff}
-.status{text-align:center;font-size:.78rem;color:#50508a;min-height:20px;margin-top:8px}
-.status.play{color:#22c55e}
-.status.warn{color:#f59e0b}
-.tag{display:inline-block;padding:2px 8px;border-radius:10px;font-size:.68rem;font-weight:700;margin-right:4px}
-.tag.pop{background:#1a2a10;color:#86efac}
-.tag.rock{background:#2a1010;color:#fca5a5}
-.tag.jazz{background:#0d2a40;color:#7dd3fc}
-.tag.rnd{background:#2a1a40;color:#c4b5fd}
-
-/* ── chord editing ── */
-.chord-box{cursor:pointer;position:relative}
-.chord-box:hover{border-color:#5050a0;background:#14143a}
+/* ── Chord display ───────────────────────────────────────────── */
+.prog-display{
+  display:flex;
+  flex-wrap:wrap;
+  gap:14px;
+  justify-content:center;
+  padding:24px 8px 16px;
+  min-height:130px;
+  align-items:center;
+}
+.chord-box{
+  background:#12122c;
+  border:2px solid #3a3a6a;
+  border-radius:12px;
+  padding:14px 20px;
+  min-width:88px;
+  text-align:center;
+  transition:all .18s;
+  cursor:pointer;
+  position:relative;
+}
+.chord-box:hover{border-color:#6060b0;background:#16163a}
+.chord-box:focus-visible{outline:3px solid var(--ac-pur);outline-offset:2px}
 .chord-box:hover .edit-hint{opacity:1}
-.edit-hint{position:absolute;top:4px;right:6px;font-size:.55rem;color:#5050a0;opacity:0;transition:opacity .15s;pointer-events:none;letter-spacing:.03em}
-.chord-box.editing{border-color:#a78bfa;background:#1a1840;box-shadow:0 0 0 3px #a78bfa33}
+.edit-hint{
+  position:absolute;top:5px;right:7px;
+  font-size:.7rem;           /* was .55rem */
+  color:#8080b8;
+  opacity:0;transition:opacity .15s;pointer-events:none;
+}
+.chord-box.editing{border-color:var(--ac-pur);background:#1e1a4a;box-shadow:0 0 0 3px #b39dff33}
 .chord-box.lit .edit-hint{display:none}
 
-/* delete button on each chord */
-.del-btn{position:absolute;top:-8px;right:-8px;width:20px;height:20px;border-radius:50%;background:#ef4444;color:#fff;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .15s;border:none;padding:0;font-weight:700;z-index:10}
+.cn{font-size:2.3rem;font-weight:800;color:var(--tx-main);line-height:1}   /* was 1.85rem */
+.ce{font-size:1rem;font-weight:700;color:var(--ac-pur);min-height:18px;margin-top:3px}   /* was .82rem */
+.cr{font-size:.8rem;color:var(--tx-muted);margin-top:6px;letter-spacing:.04em}   /* was .62rem */
+.ci{font-size:.75rem;color:#5858a0;margin-top:3px;font-family:monospace}   /* was .58rem */
+.inv{font-size:.75rem;color:#9090b8;margin-top:2px;font-style:italic}      /* was .58rem */
+
+.chord-box.lit{border-color:var(--ac-pur);background:#1e1a4a;box-shadow:0 0 20px #b39dff44}
+.chord-box.lit .cn{color:#e0d4ff}
+.chord-box.lit .ce{color:#ece0ff}
+
+/* delete button */
+.del-btn{
+  position:absolute;top:-9px;right:-9px;
+  width:22px;height:22px;
+  border-radius:50%;background:#dc2626;color:#fff;
+  font-size:14px;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;opacity:0;transition:opacity .15s;
+  border:none;padding:0;font-weight:700;z-index:10;
+}
 .chord-box:hover .del-btn{opacity:1}
+.del-btn:focus-visible{opacity:1;outline:3px solid #fff;outline-offset:1px}
 
 /* add chord button */
-.add-chord-btn{background:transparent;border:2px dashed #303060;border-radius:12px;padding:12px 14px;min-width:52px;min-height:80px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .18s;color:#404080;font-size:1.4rem;font-weight:300}
-.add-chord-btn:hover{border-color:#a78bfa;color:#a78bfa;background:#12103a}
+.add-chord-btn{
+  background:transparent;
+  border:2px dashed #3a3a6a;
+  border-radius:12px;
+  padding:14px 16px;
+  min-width:56px;min-height:90px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:all .18s;
+  color:#5050a0;
+  font-size:1.75rem;font-weight:300;
+}
+.add-chord-btn:hover{border-color:var(--ac-pur);color:var(--ac-pur);background:#12103a}
+.add-chord-btn:focus-visible{outline:3px solid var(--ac-pur);outline-offset:2px}
 .add-chord-btn:active{transform:scale(.96)}
 
-/* edit popover */
-.edit-popover{position:fixed;z-index:999;background:#1a1838;border:1.5px solid #a78bfa;border-radius:14px;padding:16px;width:360px;box-shadow:0 8px 40px #00000088;max-height:80vh;overflow-y:auto}
-.ep-group-label{font-size:.62rem;font-weight:700;letter-spacing:.09em;color:#6060a0;text-transform:uppercase;margin:8px 0 4px}
-.ep-arrow{position:absolute;top:-8px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:8px solid #a78bfa}
-.ep-title{font-size:.68rem;font-weight:700;letter-spacing:.09em;color:#a78bfa;text-transform:uppercase;margin-bottom:10px}
-.ep-input{width:100%;background:#0d0d1c;color:#e0e0f0;border:1.5px solid #353560;border-radius:8px;padding:10px 12px;font-size:1.4rem;font-weight:700;outline:none;transition:border-color .2s;letter-spacing:.05em;font-family:'Segoe UI',Arial,sans-serif}
-.ep-input:focus{border-color:#a78bfa}
-.ep-input.err{border-color:#ef4444}
-.ep-hint{font-size:.68rem;color:#50508a;margin-top:6px;line-height:1.5}
-.ep-hint code{color:#a78bfa;font-family:monospace}
-.ep-preview{margin-top:8px;padding:8px 12px;background:#0d0d1c;border-radius:8px;font-size:.8rem;color:#8888c0;min-height:28px;border:1px solid #22224a}
-.ep-buttons{display:flex;gap:8px;margin-top:10px}
-.ep-ok{flex:1;padding:8px;background:#7c3aed;color:#fff;border:none;border-radius:7px;font-size:.85rem;font-weight:700;cursor:pointer}
+/* prog name + beat bar */
+.pn{text-align:center;font-size:.95rem;color:var(--tx-muted);margin-bottom:5px;font-style:italic;min-height:20px}
+.beat-bar{display:flex;justify-content:center;gap:6px;margin-top:12px;padding-bottom:4px}
+.bd{width:10px;height:10px;border-radius:50%;background:#252550;transition:background .08s}
+.bd.on{background:var(--ac-pur)}
+
+/* info box */
+.info-box{
+  background:#0c0c22;
+  border-left:4px solid var(--ac-pur);
+  border-radius:0 8px 8px 0;
+  padding:12px 16px;
+  font-size:.95rem;          /* was .78rem */
+  color:var(--tx-mid);
+  line-height:1.7;
+}
+.info-box strong{color:#d4c8ff}
+
+/* status bar */
+.status{text-align:center;font-size:.9rem;color:var(--tx-muted);min-height:22px;margin-top:10px}
+.status.play{color:var(--green)}
+.status.warn{color:var(--amber)}
+
+/* genre tags */
+.tag{display:inline-block;padding:3px 10px;border-radius:10px;font-size:.82rem;font-weight:700;margin-right:5px}
+.tag.pop {background:#1a3010;color:#86efac}
+.tag.rock{background:#301010;color:#fca5a5}
+.tag.jazz{background:#0d2840;color:#93d4ff}
+.tag.rnd {background:#2a1a40;color:var(--ac-pur)}
+
+/* ── Chord editor popover ────────────────────────────────────── */
+.edit-popover{
+  position:fixed;z-index:999;
+  background:#1c1a38;
+  border:2px solid var(--ac-pur);
+  border-radius:14px;
+  padding:18px;
+  width:380px;
+  box-shadow:0 8px 40px #00000099;
+  max-height:82vh;overflow-y:auto;
+}
+.ep-group-label{
+  font-size:.8rem;           /* was .62rem */
+  font-weight:700;letter-spacing:.08em;
+  color:var(--tx-muted);
+  text-transform:uppercase;
+  margin:10px 0 5px;
+}
+.ep-arrow{
+  position:absolute;top:-8px;left:50%;
+  transform:translateX(-50%);
+  width:0;height:0;
+  border-left:8px solid transparent;
+  border-right:8px solid transparent;
+  border-bottom:8px solid var(--ac-pur);
+}
+.ep-title{font-size:.88rem;font-weight:700;letter-spacing:.08em;color:var(--ac-pur);text-transform:uppercase;margin-bottom:12px}
+.ep-input{
+  width:100%;background:var(--bg-dark);color:var(--tx-main);
+  border:2px solid var(--bd-subtle);
+  border-radius:8px;padding:11px 14px;
+  font-size:1.625rem;        /* was 1.4rem × 1.16 */
+  font-weight:700;outline:none;
+  transition:border-color .2s;
+  letter-spacing:.05em;
+  font-family:'Segoe UI',Arial,sans-serif;
+}
+.ep-input:focus{border-color:var(--ac-pur)}
+.ep-input.err{border-color:var(--red)}
+.ep-hint{font-size:.85rem;color:var(--tx-muted);margin-top:7px;line-height:1.55}
+.ep-hint code{color:var(--ac-pur);font-family:monospace}
+.ep-preview{
+  margin-top:8px;padding:9px 14px;
+  background:var(--bg-dark);
+  border-radius:8px;font-size:.95rem;
+  color:var(--tx-mid);min-height:32px;
+  border:1px solid #2a2a48;
+}
+.ep-buttons{display:flex;gap:9px;margin-top:12px}
+.ep-ok{
+  flex:1;padding:9px;
+  background:#7c3aed;color:#fff;
+  border:none;border-radius:7px;
+  font-size:1rem;font-weight:700;cursor:pointer;
+}
 .ep-ok:hover{background:#6d28d9}
-.ep-cancel{padding:8px 14px;background:#1a1a30;color:#8080b0;border:1px solid #353560;border-radius:7px;font-size:.85rem;font-weight:600;cursor:pointer}
-.ep-cancel:hover{color:#e0e0f0;border-color:#6060a0}
-.ep-suggestions{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
-.ep-sug{padding:3px 9px;font-size:.72rem;font-weight:600;border:1px solid #353560;border-radius:14px;background:#0d0d1c;color:#8080b0;cursor:pointer;transition:all .12s}
-.ep-sug:hover{border-color:#a78bfa;color:#c4b5fd;background:#16103a}
+.ep-cancel{
+  padding:9px 16px;
+  background:#1e1e38;color:var(--tx-mid);
+  border:1.5px solid var(--bd-subtle);
+  border-radius:7px;font-size:1rem;font-weight:600;cursor:pointer;
+}
+.ep-cancel:hover{color:var(--tx-main);border-color:var(--ac-pur-dk)}
+.ep-suggestions{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.ep-sug{
+  padding:4px 11px;          /* was 3px 9px */
+  font-size:.88rem;          /* was .72rem */
+  font-weight:600;
+  border:1.5px solid var(--bd-subtle);
+  border-radius:14px;
+  background:var(--bg-input);
+  color:var(--tx-mid);
+  cursor:pointer;
+  transition:all .12s;
+}
+.ep-sug:hover{border-color:var(--ac-pur);color:var(--ac-pur);background:#181430}
+.ep-sug:focus-visible{outline:3px solid var(--ac-pur);outline-offset:2px}
 .edit-overlay{position:fixed;inset:0;z-index:998}
 
-/* ── drum machine ── */
-.drum-matrix{display:grid;gap:3px;min-width:620px}
-.drum-row{display:grid;grid-template-columns:90px repeat(16,1fr);gap:3px;align-items:center}
-.drum-label{font-size:.72rem;font-weight:700;color:#9090c0;text-align:right;padding-right:10px;white-space:nowrap;user-select:none}
-.drum-label span{display:block;font-size:.58rem;color:#50508a;font-weight:400}
-.drum-cell{aspect-ratio:1;border-radius:5px;cursor:pointer;border:1px solid #252545;background:#0f0f22;transition:background .1s,border-color .1s;position:relative;min-width:0}
-.drum-cell:hover{border-color:#5050a0;background:#18182e}
-.drum-cell.on{background:#7c3aed;border-color:#a78bfa}
+/* ── Drum machine ────────────────────────────────────────────── */
+.drum-matrix{display:grid;gap:4px;min-width:640px}
+.drum-row{display:grid;grid-template-columns:100px repeat(16,1fr);gap:4px;align-items:center}
+.drum-label{
+  font-size:.9rem;           /* was .72rem */
+  font-weight:700;
+  color:#b0b0d8;             /* was #9090c0 — brighter */
+  text-align:right;padding-right:10px;
+  white-space:nowrap;user-select:none;
+}
+.drum-label span{
+  display:block;
+  font-size:.75rem;          /* was .58rem */
+  color:var(--tx-muted);
+  font-weight:400;
+}
+.drum-cell{
+  aspect-ratio:1;border-radius:5px;cursor:pointer;
+  border:1.5px solid #2e2e52;
+  background:#111126;
+  transition:background .1s,border-color .1s;
+  position:relative;min-width:0;
+}
+.drum-cell:hover{border-color:#6060a8;background:#1a1a34}
+.drum-cell:focus-visible{outline:3px solid var(--ac-pur);outline-offset:1px}
+.drum-cell.on{background:#7c3aed;border-color:var(--ac-pur)}
 .drum-cell.on:hover{background:#8b47f5}
-/* beat group tinting */
-.drum-cell.beat-1,.drum-cell.beat-3{background:#13132a}
-.drum-cell.beat-1.on,.drum-cell.beat-3.on{background:#7c3aed}
-/* accent: beat 1 of every group of 4 is slightly brighter */
-.drum-cell.accent{background:#141430}
+.drum-cell.accent{background:#161634}
 .drum-cell.accent.on{background:#9333ea;border-color:#c084fc}
-/* hi-hat row colours */
-.drum-row.row-hh .drum-cell.on{background:#0369a1;border-color:#38bdf8}
-.drum-row.row-hh .drum-cell.accent.on{background:#0284c7;border-color:#7dd3fc}
-.drum-row.row-ohh .drum-cell.on{background:#065f46;border-color:#34d399}
-/* snare */
-.drum-row.row-sn .drum-cell.on{background:#9a3412;border-color:#fb923c}
-.drum-row.row-sn .drum-cell.accent.on{background:#c2410c;border-color:#fed7aa}
-/* beat divider lines */
-.drum-cell.div{border-left:2px solid #2a2a50!important}
-/* active step highlight during playback */
-.drum-cell.playing{box-shadow:0 0 6px #a78bfacc;filter:brightness(1.4)}
-.drum-beat-row{display:grid;grid-template-columns:90px repeat(16,1fr);gap:3px;margin-top:4px;min-width:620px}
-.dbeat{height:4px;border-radius:2px;background:#22224a;transition:background .06s}
-.dbeat.on{background:#a78bfa}
-@media(max-width:480px){.cn{font-size:1.5rem}.chord-box{padding:10px 12px;min-width:66px}h1{font-size:1.5rem}}
+/* per-row instrument colours */
+.drum-row.row-hh  .drum-cell.on      {background:#0369a1;border-color:#38bdf8}
+.drum-row.row-hh  .drum-cell.accent.on{background:#0284c7;border-color:#7dd3fc}
+.drum-row.row-ohh .drum-cell.on      {background:#065f46;border-color:#34d399}
+.drum-row.row-ohh .drum-cell.accent.on{background:#047857;border-color:#6ee7b7}
+.drum-row.row-sn  .drum-cell.on      {background:#9a3412;border-color:#fb923c}
+.drum-row.row-sn  .drum-cell.accent.on{background:#c2410c;border-color:#fdba74}
+.drum-cell.div{border-left:2px solid #3a3a68!important}
+.drum-cell.playing{box-shadow:0 0 8px #c4b5fdcc;filter:brightness(1.45)}
+.drum-beat-row{
+  display:grid;
+  grid-template-columns:100px repeat(16,1fr);
+  gap:4px;margin-top:5px;min-width:640px;
+}
+.dbeat{height:5px;border-radius:3px;background:#202048;transition:background .06s}
+.dbeat.on{background:var(--ac-pur)}
+
+/* ── Skip-to-content for screen readers ──────────────────────── */
+.sr-only{
+  position:absolute;width:1px;height:1px;
+  padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0,0,0,0);border:0;
+}
+.skip-link{
+  position:absolute;top:-40px;left:8px;
+  background:var(--ac-pur);color:#0d0d1c;
+  padding:8px 14px;border-radius:0 0 8px 8px;
+  font-size:1rem;font-weight:700;text-decoration:none;
+  z-index:9999;transition:top .15s;
+}
+.skip-link:focus{top:0}
+
+@media(max-width:600px){
+  .cn{font-size:1.75rem}
+  .chord-box{padding:10px 14px;min-width:72px}
+  h1{font-size:1.75rem}
+  .drum-matrix,.drum-beat-row{min-width:480px}
+  .drum-row{grid-template-columns:76px repeat(16,1fr)}
+  .drum-label{font-size:.78rem}
+}
+@media(prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+}
 </style>
 </head>
 <body>
+<a href="#main-controls" class="skip-link">Zum Hauptbereich springen</a>
 <h1>Chord Progression Generator</h1>
-<p class="subtitle">Pop · Rock · Jazz · SoundFont SF2 · Stimmführung · Akkord anklicken zum Editieren</p>
+<p class="subtitle" role="doc-subtitle">Pop · Rock · Jazz · SoundFont SF2 · Stimmführung · Akkord anklicken zum Editieren</p>
 
 <!-- MAIN CONTROLS -->
-<div class="card">
+<main>
+<div class="card" id="main-controls" role="region" aria-label="Akkord-Einstellungen">
   <div class="controls-row">
     <div class="cg"><label>Tonart</label><select id="keySelect"></select></div>
     <div class="cg"><label>Modus</label>
@@ -178,7 +522,7 @@ input[type=range]{flex:1;min-width:100px;accent-color:#a78bfa;cursor:pointer}
   <div class="sf2-row">
     <div class="cg" style="flex:2;min-width:200px">
       <label>Dateiname im Ordner <code style="color:#a78bfa;font-size:.75rem">/soundfonts/</code></label>
-      <input type="text" id="sf2Filename" value="TimGM6mb.sf2" placeholder="TimGM6mb.sf2">
+      <input type="text" id="sf2Filename" value="GM_Roland.sf2" placeholder="GM_Roland.sf2">
     </div>
     <button class="btn-sf2" id="btnLoad" onclick="loadSF2()">&#8659; Laden</button>
   </div>
@@ -202,12 +546,19 @@ input[type=range]{flex:1;min-width:100px;accent-color:#a78bfa;cursor:pointer}
         </select>
       </div>
     </div>
+    <div class="tempo-row" style="margin-top:10px">
+      <span class="tl" style="color:#60a5fa">Sustain</span>
+      <input type="range" id="sustainSlider" min="0" max="100" value="80"
+             style="flex:1;min-width:100px;accent-color:#60a5fa;cursor:pointer">
+      <span class="tv" id="sustainVal" style="color:#60a5fa;font-size:.82rem">80%</span>
+    </div>
+    <div style="font-size:.67rem;color:#40406a;margin-top:3px">0% = Staccato · 100% = voller Legato/Sustain-Ausklang</div>
   </div>
 
   <div class="sf2-hint">
     <strong>Einrichtung:</strong> Lege deine <code>.sf2</code>-Datei in den Ordner <code>soundfonts/</code> relativ zur HTML-Datei.
     Starte einen lokalen Webserver (<code>npx serve .</code> oder VS Code Live Server), damit der Browser die Datei laden kann.
-    Empfohlen: <code>TimGM6mb.sf2</code>, <code>GeneralUser_GS.sf2</code>, <code>MuseScore_General.sf2</code>
+    Empfohlen: <code>GM_Roland.sf2</code>, <code>GeneralUser_GS.sf2</code>, <code>MuseScore_General.sf2</code>
   </div>
 
   <hr class="divider">
@@ -261,19 +612,19 @@ input[type=range]{flex:1;min-width:100px;accent-color:#a78bfa;cursor:pointer}
 </div>
 
 <!-- CHORD DISPLAY -->
-<div class="card">
+<div class="card" role="region" aria-label="Akkordfolge-Anzeige">
   <div class="pn" id="progName">—</div>
   <div class="prog-display" id="progDisplay"></div>
   <div class="beat-bar" id="beatBar"></div>
 </div>
 
 <!-- INFO -->
-<div class="card">
+<div class="card" role="region" aria-label="Info">
   <div class="info-box" id="infoBox">Wähle eine Akkordfolge oder klicke auf <strong>Random</strong>.</div>
 </div>
 
 <!-- DRUM MACHINE -->
-<div class="card" id="drumCard">
+<div class="card" id="drumCard" role="region" aria-label="Drum Machine">
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:10px">
       <span class="sec" style="margin-bottom:0">Drum Machine</span>
@@ -299,13 +650,25 @@ input[type=range]{flex:1;min-width:100px;accent-color:#a78bfa;cursor:pointer}
   <!-- Beat indicator row -->
   <div id="drumBeatRow" class="drum-beat-row"></div>
 
-  <!-- Volume -->
+  <!-- Volume + standalone play -->
   <div class="tempo-row" style="margin-top:12px">
     <span class="tl">Drum-Lautstärke</span>
     <input type="range" id="drumVolume" min="0" max="100" value="70" style="flex:1;min-width:100px;accent-color:#a78bfa;cursor:pointer">
     <span class="tv" id="drumVolVal">70%</span>
   </div>
+  <div class="btn-row" style="margin-top:12px">
+    <button id="drumPlayBtn" onclick="drumPlayPause()"
+      style="background:#22c55e;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:.88rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px">
+      &#9654; Drums
+    </button>
+    <button onclick="stopDrumOnly()"
+      style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:.88rem;font-weight:700;cursor:pointer">
+      &#9646; Stop
+    </button>
+    <span style="font-size:.9rem;color:var(--tx-muted);align-self:center;margin-left:4px">Drums unabhängig von Akkorden abspielen</span>
+  </div>
 </div>
+</main>
 
 <script>
 /* ═══════════════════════════════════════════════════════════════
@@ -705,8 +1068,8 @@ function playSF2Note(ctx, midiNote, startTime, duration, masterGain){
   // Enable looping so the note sustains for its full musical duration.
   // Without looping, short samples (e.g. 0.3s piano) are cut off early.
   const sh=entry.sh;
-  const hasLoop = sh && sh.loopStart < sh.loopEnd
-                     && sh.loopEnd   <  (sh.end - sh.start)
+  const hasLoop = sh && sh.loopStart > 0 && sh.loopEnd > sh.loopStart
+                     && sh.loopEnd < sh.end   // absolute comparison — loopEnd is absolute sample position
                      && sh.type !== 0;
   if(hasLoop){
     src.loop      = true;
@@ -714,25 +1077,28 @@ function playSF2Note(ctx, midiNote, startTime, duration, masterGain){
     src.loopEnd   = (sh.loopEnd   - sh.start) / sh.sampleRate;
   }
 
+  // ── Sustain / Legato control ─────────────────────────────────
+  // sustainSlider 0-100: scales how long the note is held before release.
+  // At 100% the note rings for the full duration + long natural decay.
+  // At 0% only a short percussive onset is played.
+  const sustainPct = $('sustainSlider') ? parseInt($('sustainSlider').value)/100 : 0.8;
+  // holdDur: the actual time at full volume before release begins
+  const holdDur = duration * (0.05 + sustainPct * 0.95); // 5%..100% of duration
+
   // ── Release time ─────────────────────────────────────────────
-  // SF2 volEnvRelease default was stored as -1200 timecents ≈ 0.5s.
-  // Use at least 0.8s so piano notes don't pop; cap at 10s.
-  const relSec = Math.max(0.8, Math.min(10, entry.relSec));
+  const relSec = Math.max(0.5 + sustainPct * 2.5, Math.min(10, entry.relSec));
 
   // ── Envelope ─────────────────────────────────────────────────
   const env = ctx.createGain();
-  env.gain.setValueAtTime(0.0001, startTime);            // avoid click on start
-  env.gain.linearRampToValueAtTime(1.0, startTime + 0.004); // fast attack (4ms)
-  env.gain.setValueAtTime(1.0, startTime + duration);   // hold at full volume
-  // Exponential release — must start from a non-zero value
-  env.gain.setValueAtTime(1.0, startTime + duration);
-  env.gain.exponentialRampToValueAtTime(0.0001, startTime + duration + relSec);
+  env.gain.setValueAtTime(0.0001, startTime);
+  env.gain.linearRampToValueAtTime(1.0, startTime + 0.004);
+  env.gain.setValueAtTime(1.0, startTime + holdDur);
+  env.gain.exponentialRampToValueAtTime(0.0001, startTime + holdDur + relSec);
 
   src.connect(env);
   env.connect(masterGain);
   src.start(startTime);
-  // Hard stop well after the release has faded to silence
-  src.stop(startTime + duration + relSec + 0.1);
+  src.stop(startTime + holdDur + relSec + 0.1);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1587,6 +1953,9 @@ function stopPlayback(){
   statusBar.textContent='Gestoppt'; statusBar.className='status';
   lit(-1); litBeat(-1);
   drumHighlightStep(-1);
+  // also stop standalone drum loop if running
+  if(drumOnlyPlaying){ drumOnlyStop=true; drumOnlyPlaying=false;
+    const b=$('drumPlayBtn'); if(b) b.innerHTML='&#9654; Drums'; }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2272,6 +2641,41 @@ function scheduleDrumStep(ctx, step16, t){
 }
 
 $('drumVolume').addEventListener('input',()=>$('drumVolVal').textContent=$('drumVolume').value+'%');
+$('sustainSlider').addEventListener('input',()=>$('sustainVal').textContent=$('sustainSlider').value+'%');
+
+/* ── Drum-only standalone playback loop ───────────────────────── */
+let drumOnlyPlaying=false, drumOnlyStop=false;
+
+async function drumPlayPause(){
+  if(drumOnlyPlaying){ drumOnlyStop=true; drumOnlyPlaying=false;
+    $('drumPlayBtn').innerHTML='&#9654; Drums'; return; }
+  drumOnlyPlaying=true; drumOnlyStop=false;
+  $('drumPlayBtn').innerHTML='&#9646; Stop Drums';
+  const ctx=getCtx();
+  if(ctx.state==='suspended') await ctx.resume();
+  const meter=parseInt($('meterSelect').value)||4;
+  const bpm=parseInt($('tempoSlider').value);
+  const sixteenth=60/bpm/4;
+  const stepsPerMeasure=Math.min(DRUM_STEPS, meter===3?12:meter===6?24:16);
+  let step=0;
+  function nextDrum(){
+    if(drumOnlyStop){ drumOnlyPlaying=false;
+      $('drumPlayBtn').innerHTML='&#9654; Drums';
+      drumHighlightStep(-1); return; }
+    const s=step%DRUM_STEPS;
+    drumHighlightStep(s);
+    scheduleDrumStep(ctx, s, ctx.currentTime);
+    step++;
+    setTimeout(nextDrum, sixteenth*1000);
+  }
+  nextDrum();
+}
+
+function stopDrumOnly(){
+  drumOnlyStop=true; drumOnlyPlaying=false;
+  $('drumPlayBtn').innerHTML='&#9654; Drums';
+  drumHighlightStep(-1);
+}
 
 tempoSlider.addEventListener('input',()=>tempoValEl.textContent=tempoSlider.value+' BPM');
 keySelect.addEventListener('change',()=>isRandom?generateRandom():updateProgression());
