@@ -694,7 +694,7 @@ input[type=range]{
   </div>
 
   <div class="sf2-hint">
-    <strong>Einrichtung:</strong> Lege deine <code>.sf2</code>-Datei in den Ordner <code>soundfontss/</code> relativ zur HTML-Datei.
+    <strong>Einrichtung:</strong> Lege deine <code>.sf2</code>-Datei in den Ordner <code>soundfonts/</code> relativ zur HTML-Datei.
     Starte einen lokalen Webserver (<code>npx serve .</code> oder VS Code Live Server), damit der Browser die Datei laden kann.
     Empfohlen: <code>GM_Roland.sf2</code>, <code>GeneralUser_GS.sf2</code>, <code>MuseScore_General.sf2</code>
   </div>
@@ -1165,7 +1165,7 @@ function buildNoteMap(sf2, presetIdx){
 
 async function loadSF2(){
   const fname=$('sf2Filename').value.trim();
-  const path='soundfontss/'+fname;
+  const path='soundfonts/'+fname;
   const statusEl=$('sf2Status'), pgBar=$('pgBar'), pgFill=$('pgFill'), btn=$('btnLoad');
   btn.disabled=true;
   statusEl.className='sf2-status busy';
