@@ -483,6 +483,142 @@ input[type=range]{
 }
 .skip-link:focus{top:0}
 
+/* ── Drum mixer ──────────────────────────────────────────────── */
+.drum-mixer{
+  display:flex;
+  gap:0;
+  align-items:stretch;
+  margin-top:16px;
+  padding:16px 10px 14px;
+  background:var(--bg-dark);
+  border-radius:12px;
+  border:1px solid var(--bd-subtle);
+  overflow-x:auto;
+}
+.mix-strip{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+  flex:1;
+  min-width:72px;
+  padding:0 6px;
+  position:relative;
+}
+.mix-strip+.mix-strip{
+  border-left:1px solid var(--bd-subtle);
+}
+.mix-strip-label{
+  font-size:.85rem;
+  font-weight:700;
+  text-align:center;
+  white-space:nowrap;
+  letter-spacing:.03em;
+  line-height:1.2;
+}
+.mix-strip-sub{
+  display:block;
+  font-size:.7rem;
+  font-weight:400;
+  opacity:.75;
+  margin-top:2px;
+}
+/* Fader track container — reserves vertical space */
+.fader-wrap{
+  position:relative;
+  width:36px;
+  height:120px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+/* The rotated range input */
+.mix-fader{
+  position:absolute;
+  width:120px;           /* becomes height after rotation */
+  height:28px;           /* becomes width after rotation */
+  margin:0;
+  padding:0;
+  transform:rotate(-90deg);
+  transform-origin:center center;
+  cursor:pointer;
+  background:transparent;
+  /* Remove default styling so we can style track/thumb */
+  -webkit-appearance:none;
+  appearance:none;
+}
+/* Track */
+.mix-fader::-webkit-slider-runnable-track{
+  height:6px;
+  border-radius:3px;
+  background:#2a2a4a;
+}
+.mix-fader::-moz-range-track{
+  height:6px;
+  border-radius:3px;
+  background:#2a2a4a;
+}
+/* Thumb */
+.mix-fader::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  width:20px;
+  height:20px;
+  border-radius:50%;
+  background:#b39dff;
+  border:2px solid #fff3;
+  margin-top:-7px;
+  cursor:grab;
+  box-shadow:0 2px 6px #0008;
+  transition:background .12s,transform .1s;
+}
+.mix-fader::-webkit-slider-thumb:hover{background:#c4b5fd;transform:scale(1.15)}
+.mix-fader::-moz-range-thumb{
+  width:20px;height:20px;
+  border-radius:50%;
+  background:#b39dff;
+  border:2px solid #fff3;
+  cursor:grab;
+  box-shadow:0 2px 6px #0008;
+}
+/* Per-instrument thumb colours injected via JS data attribute */
+.mix-strip[data-color="bd"]   .mix-fader::-webkit-slider-thumb{background:#c084fc}
+.mix-strip[data-color="bd"]   .mix-fader::-moz-range-thumb   {background:#c084fc}
+.mix-strip[data-color="sn"]   .mix-fader::-webkit-slider-thumb{background:#fb923c}
+.mix-strip[data-color="sn"]   .mix-fader::-moz-range-thumb   {background:#fb923c}
+.mix-strip[data-color="hh"]   .mix-fader::-webkit-slider-thumb{background:#38bdf8}
+.mix-strip[data-color="hh"]   .mix-fader::-moz-range-thumb   {background:#38bdf8}
+.mix-strip[data-color="ohh"]  .mix-fader::-webkit-slider-thumb{background:#34d399}
+.mix-strip[data-color="ohh"]  .mix-fader::-moz-range-thumb   {background:#34d399}
+.mix-strip[data-color="master"] .mix-fader::-webkit-slider-thumb{background:#b39dff}
+.mix-strip[data-color="master"] .mix-fader::-moz-range-thumb   {background:#b39dff}
+
+/* Value display */
+.mix-val{
+  font-size:.95rem;
+  font-weight:800;
+  color:var(--tx-main);
+  text-align:center;
+  min-width:36px;
+  font-family:monospace;
+  letter-spacing:.04em;
+}
+/* Mute button */
+.mix-mute{
+  font-size:.78rem;
+  font-weight:700;
+  padding:4px 10px;
+  border:1.5px solid var(--bd-subtle);
+  border-radius:14px;
+  cursor:pointer;
+  background:var(--bg-input);
+  color:var(--tx-muted);
+  transition:all .15s;
+  min-height:28px;
+}
+.mix-mute:hover{border-color:var(--ac-pur-dk);color:var(--tx-main)}
+.mix-mute.muted{background:#7f1d1d;border-color:#f87171;color:#fca5a5}
+.mix-mute:focus-visible{outline:3px solid var(--ac-pur);outline-offset:2px}
+
 @media(max-width:600px){
   .cn{font-size:1.75rem}
   .chord-box{padding:10px 14px;min-width:72px}
@@ -490,6 +626,7 @@ input[type=range]{
   .drum-matrix,.drum-beat-row{min-width:480px}
   .drum-row{grid-template-columns:76px repeat(16,1fr)}
   .drum-label{font-size:.78rem}
+  .mix-fader{height:64px}
 }
 @media(prefers-reduced-motion:reduce){
   *{transition:none!important;animation:none!important}
@@ -499,7 +636,8 @@ input[type=range]{
 <body>
 <a href="#main-controls" class="skip-link">Zum Hauptbereich springen</a>
 <h1>Chord Progression Generator</h1>
-<p class="subtitle" role="doc-subtitle">Pop · Rock · Jazz · SoundFont SF2 · Stimmführung · Akkord anklicken zum Editieren</p>
+<p class="subtitle" role="doc-subtitle">Pop · Rock · Jazz · soundfonts SF2 · Stimmführung · Akkord anklicken zum Editieren</p>
+<p id="dataLoadStatus" style="text-align:center;font-size:.82rem;min-height:18px;margin-bottom:6px"></p>
 
 <!-- MAIN CONTROLS -->
 <main>
@@ -518,16 +656,16 @@ input[type=range]{
   <hr class="divider">
 
   <!-- SF2 -->
-  <div class="sec">SoundFont (SF2)</div>
+  <div class="sec">soundfonts (SF2)</div>
   <div class="sf2-row">
     <div class="cg" style="flex:2;min-width:200px">
       <label>Dateiname im Ordner <code style="color:#a78bfa;font-size:.75rem">/soundfonts/</code></label>
-      <input type="text" id="sf2Filename" value="GM_Roland.sf2" placeholder="GM_Roland.sf2">
+      <input type="text" id="sf2Filename" value="GM_Roland.sf2" placeholder="FluidR3_GM_GS.sf2">
     </div>
     <button class="btn-sf2" id="btnLoad" onclick="loadSF2()">&#8659; Laden</button>
   </div>
   <div class="prog-bar" id="pgBar"><div class="prog-fill" id="pgFill" style="width:0%"></div></div>
-  <div class="sf2-status" id="sf2Status">Kein SoundFont geladen — Synthesizer wird verwendet.</div>
+  <div class="sf2-status" id="sf2Status">Kein Soundfont geladen — Synthesizer wird verwendet.</div>
 
   <!-- Preset selector (hidden until loaded) -->
   <div id="presetRow" style="display:none;margin-top:10px">
@@ -556,7 +694,7 @@ input[type=range]{
   </div>
 
   <div class="sf2-hint">
-    <strong>Einrichtung:</strong> Lege deine <code>.sf2</code>-Datei in den Ordner <code>soundfonts/</code> relativ zur HTML-Datei.
+    <strong>Einrichtung:</strong> Lege deine <code>.sf2</code>-Datei in den Ordner <code>soundfontss/</code> relativ zur HTML-Datei.
     Starte einen lokalen Webserver (<code>npx serve .</code> oder VS Code Live Server), damit der Browser die Datei laden kann.
     Empfohlen: <code>GM_Roland.sf2</code>, <code>GeneralUser_GS.sf2</code>, <code>MuseScore_General.sf2</code>
   </div>
@@ -600,6 +738,13 @@ input[type=range]{
     <span class="tl">Tempo</span>
     <input type="range" id="tempoSlider" min="40" max="220" value="100" step="1">
     <span class="tv" id="tempoVal">100 BPM</span>
+  </div>
+  <div class="tempo-row" style="margin-top:8px">
+    <span class="tl" style="color:#86efac">🎵 Akkord-Vol.</span>
+    <input type="range" id="chordVolume" min="0" max="100" value="80" step="1"
+           style="flex:1;min-width:100px;accent-color:#4ade80;cursor:pointer"
+           aria-label="Akkordfolge Lautstärke">
+    <span class="tv" id="chordVolVal" style="color:#86efac">80%</span>
   </div>
 
   <div class="btn-row">
@@ -650,19 +795,29 @@ input[type=range]{
   <!-- Beat indicator row -->
   <div id="drumBeatRow" class="drum-beat-row"></div>
 
-  <!-- Volume + standalone play -->
-  <div class="tempo-row" style="margin-top:12px">
-    <span class="tl">Drum-Lautstärke</span>
-    <input type="range" id="drumVolume" min="0" max="100" value="70" style="flex:1;min-width:100px;accent-color:#a78bfa;cursor:pointer">
-    <span class="tv" id="drumVolVal">70%</span>
+  <!-- Drum Mixer -->
+  <div class="drum-mixer" role="group" aria-label="Drum Mixer">
+    <!-- Master strip -->
+    <div class="mix-strip" data-color="master">
+      <div class="mix-strip-label" style="color:#c4b5fd">Master<span class="mix-strip-sub">Drums</span></div>
+      <div class="fader-wrap">
+        <input type="range" class="mix-fader" id="drumVolume" min="0" max="100" value="70"
+               aria-label="Master Drum Lautstärke">
+      </div>
+      <span class="mix-val" id="drumVolVal">70</span>
+    </div>
+    <!-- Per-track strips rendered by JS -->
+    <div id="drumMixerStrips" style="display:contents"></div>
   </div>
+
+  <!-- Standalone play buttons -->
   <div class="btn-row" style="margin-top:12px">
     <button id="drumPlayBtn" onclick="drumPlayPause()"
-      style="background:#22c55e;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:.88rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px">
+      style="background:#16a34a;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:1rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px;min-height:42px">
       &#9654; Drums
     </button>
     <button onclick="stopDrumOnly()"
-      style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:9px 18px;font-size:.88rem;font-weight:700;cursor:pointer">
+      style="background:#dc2626;color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:1rem;font-weight:700;cursor:pointer;min-height:42px">
       &#9646; Stop
     </button>
     <span style="font-size:.9rem;color:var(--tx-muted);align-self:center;margin-left:4px">Drums unabhängig von Akkorden abspielen</span>
@@ -697,7 +852,18 @@ const EXT={
 const BASE_S={'':[ 0,4,7],'m':[0,3,7],'dim':[0,3,6]};
 const IVD=s=>({0:'R',1:'b9',2:'2',3:'b3',4:'3',5:'4',6:'b5',7:'5',8:'#5',9:'6',10:'b7',11:'7',13:'#9',14:'9',17:'11',21:'13'})[s]||'?';
 
-const PROGS_POP_MAJ=[
+/* ═══════════════════════════════════════════════════════════════
+   DATA LOADER
+   Loads ./data/akkordfolgen.js, rhythmusmuster.js, drum-patterns.js
+   Falls back to inline defaults if files cannot be loaded.
+═══════════════════════════════════════════════════════════════ */
+const DATA_FILES=[
+  'data/akkordfolgen.js',
+  'data/rhythmusmuster.js',
+  'data/drum-patterns.js',
+];
+
+let PROGS_POP_MAJ=[
   {n:'I – V – vi – IV',d:[0,4,5,3],g:'pop',i:'Beliebteste Akkordfolge der Popmusik.'},
   {n:'I – IV – V – I',d:[0,3,4,0],g:'rock',i:'Blues/Rock-Fundament.'},
   {n:'I – vi – IV – V (Doo-Wop)',d:[0,5,3,4],g:'pop',i:'50er-Sound. Warm und nostalgisch.'},
@@ -714,14 +880,14 @@ const PROGS_POP_MAJ=[
   {n:'I – IV – bVII – IV',d:[0,3,'bVII',3],g:'rock',i:'Pendel-Riff, mixolydisch.'},
   {n:'I – II – IV – I (Lydisch)',d:[0,'II',3,0],g:'pop',i:'Schwebend, lydisch gefärbt.'},
 ];
-const PROGS_POP_MIN=[
+let PROGS_POP_MIN=[
   {n:'i – VII – VI – VII',d:[0,6,5,6],g:'pop',i:'Pop-Balladen und Rocksongs.'},
   {n:'i – iv – VII – III',d:[0,3,6,2],g:'rock',i:'Episch und dramatisch.'},
   {n:'i – VI – III – VII',d:[0,5,2,6],g:'rock',i:'Emotional — in unzähligen Rocksongs.'},
   {n:'i – iv – v – i',d:[0,3,4,0],g:'rock',i:'Klassische Moll-Kadenz.'},
   {n:'i – VII – VI – III (Andal.)',d:[0,6,5,2],g:'rock',i:'Andalusische Kadenz. Filmreif.'},
 ];
-const PROGS_JAZZ_MAJ=[
+let PROGS_JAZZ_MAJ=[
   {n:'ii7 – V7 – Imaj7',d:[1,4,0],eo:['m7','dom7','maj7'],g:'jazz',i:'Die wichtigste Jazz-Kadenz.'},
   {n:'Imaj7 – IVmaj7 – V7 – Imaj7',d:[0,3,4,0],eo:['maj7','maj7','dom7','maj7'],g:'jazz',i:'Klassischer Jazz-Standard.'},
   {n:'Imaj9 – vi9 – ii9 – V13',d:[0,5,1,4],eo:['maj9','m9','m9','13'],g:'jazz',i:'Neo-Soul mit vollen Erweiterungen.'},
@@ -733,13 +899,58 @@ const PROGS_JAZZ_MAJ=[
   {n:'Imaj7 – bIII7 – bVI7 – bII7',d:[0,'bIII','bVI','bII'],eo:['maj7','dom7','dom7','dom7'],g:'jazz',i:'Bebop-Substitutionen.'},
   {n:'I – IV – iii – VI7 – ii – V7',d:[0,3,2,5,1,4],eo:['maj7','maj7','m7','dom7','m7','dom7'],g:'jazz',i:'Vollständiger Turnaround.'},
 ];
-const PROGS_JAZZ_MIN=[
+let PROGS_JAZZ_MIN=[
   {n:'im7 – iv7 – VII7 – IIImaj7',d:[0,3,6,2],eo:['m7','m7','dom7','maj7'],g:'jazz',i:'Moll-Turnaround.'},
   {n:'im9 – VI9 – III9 – VII7',d:[0,5,2,6],eo:['m9','9','9','dom7'],g:'jazz',i:'Neo-Soul Moll-Progression.'},
   {n:'im7 – bII7 – imaj7',d:[0,'bII',0],eo:['m7','dom7','maj7'],g:'jazz',i:'Phrygisch. Spanisch-exotisch.'},
   {n:'im9 – iv9 – VII9 – IIImaj9',d:[0,3,6,2],eo:['m9','m9','9','maj9'],g:'jazz',i:'Volle Erweiterungen. Cineastisch.'},
   {n:'im7 – VI7 – iim7b5 – V7',d:[0,5,1,4],eo:['m7','dom7','m7','dom7'],g:'jazz',i:'Harmonische Moll-Kadenz.'},
 ];
+
+async function loadDataFile(url){
+  try{
+    const r=await fetch(url);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const js=await r.text();
+    new Function(js)(); // assigns to window.*
+    return true;
+  }catch(e){
+    console.warn('[DataLoader]',url,'nicht geladen:',e.message,'— Fallback aktiv');
+    return false;
+  }
+}
+
+async function loadAllDataFiles(){
+  const results=await Promise.all(DATA_FILES.map(f=>loadDataFile(f)));
+  const loaded=DATA_FILES.filter((_,i)=>results[i]).map(f=>f.split('/').pop().replace('.js',''));
+
+  if(window.PROGS_POP_MAJ)  PROGS_POP_MAJ  = window.PROGS_POP_MAJ;
+  if(window.PROGS_POP_MIN)  PROGS_POP_MIN  = window.PROGS_POP_MIN;
+  if(window.PROGS_JAZZ_MAJ) PROGS_JAZZ_MAJ = window.PROGS_JAZZ_MAJ;
+  if(window.PROGS_JAZZ_MIN) PROGS_JAZZ_MIN = window.PROGS_JAZZ_MIN;
+  // RHYTHMS: full replace OR additive via RHYTHMS_EXTRA
+  if(window.RHYTHMS)        { RHYTHMS.length=0; window.RHYTHMS.forEach(r=>RHYTHMS.push(r)); }
+  if(window.RHYTHMS_EXTRA)  { window.RHYTHMS_EXTRA.forEach(r=>RHYTHMS.push(r)); }
+  // DRUM_PRESETS: full replace OR additive via DRUM_PRESETS_EXTRA
+  if(window.DRUM_PRESETS)       { for(const k in window.DRUM_PRESETS)       DRUM_PRESETS[k]=window.DRUM_PRESETS[k]; }
+  if(window.DRUM_PRESETS_EXTRA) { for(const k in window.DRUM_PRESETS_EXTRA) DRUM_PRESETS[k]=window.DRUM_PRESETS_EXTRA[k]; }
+
+  const status=$('dataLoadStatus');
+  if(status){
+    status.textContent = loaded.length
+      ? '✓ Geladen: '+loaded.join(', ')
+      : '⚠ data/-Dateien nicht gefunden — Fallback aktiv (lokaler Webserver nötig)';
+    status.style.color = loaded.length ? '#4ade80' : '#fbbf24';
+    setTimeout(()=>{ if(status) status.textContent=''; }, 5000);
+  }
+  buildRhythmSelect();
+  buildProgSelect();
+  updateProgression();
+  buildDrumPresetSelect();
+  buildDrumMixerStrips();
+}
+
+
 
 /* ═══════════════════════════════════════════════════════════════
    STATE
@@ -954,7 +1165,7 @@ function buildNoteMap(sf2, presetIdx){
 
 async function loadSF2(){
   const fname=$('sf2Filename').value.trim();
-  const path='soundfonts/'+fname;
+  const path='soundfontss/'+fname;
   const statusEl=$('sf2Status'), pgBar=$('pgBar'), pgFill=$('pgFill'), btn=$('btnLoad');
   btn.disabled=true;
   statusEl.className='sf2-status busy';
@@ -1317,11 +1528,11 @@ function litBeat(i){beatDots.forEach((d,j)=>d.classList.toggle('on',j===i));}
 function getCtx(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
 function m2f(m){return 440*Math.pow(2,(m-69)/12);}
 
-function playSynthChord(ctx,midiNotes,t,dur){
+function playSynthChord(ctx,midiNotes,t,dur,vol=0.9){
   const mg=ctx.createGain(); mg.connect(ctx.destination);
   mg.gain.setValueAtTime(0,t);
-  mg.gain.linearRampToValueAtTime(0.2,t+0.012);
-  mg.gain.exponentialRampToValueAtTime(0.09,t+0.4);
+  mg.gain.linearRampToValueAtTime(0.2*vol,t+0.012);
+  mg.gain.exponentialRampToValueAtTime(0.09*vol,t+0.4);
   mg.gain.exponentialRampToValueAtTime(0.001,t+dur);
   midiNotes.forEach((mn,vi)=>{
     const f=m2f(mn), dl=vi*0.007;
@@ -1820,24 +2031,27 @@ function resolveNoteIdx(ni, voiced){
 ═══════════════════════════════════════════════════════════════ */
 function playChordNow(ctx, chord, t, dur){
   const midiNotes=chord.voicedMidi;
+  const chordVol=(parseInt($('chordVolume')?.value??80)/100)*0.9;
   if(SF2){
     const mg=ctx.createGain();
-    mg.gain.value=0.7/Math.sqrt(midiNotes.length);
+    mg.gain.value=chordVol/Math.sqrt(midiNotes.length);
     mg.connect(ctx.destination);
     midiNotes.forEach((mn,i)=>playSF2Note(ctx,mn,t+i*0.006,dur,mg));
   } else {
-    playSynthChord(ctx,midiNotes,t,dur);
+    playSynthChord(ctx,midiNotes,t,dur,chordVol);
   }
 }
 
 function playSingleNote(ctx, midiNote, t, dur, vel){
+  const chordVol=(parseInt($('chordVolume')?.value??80)/100);
   if(SF2){
-    const mg=ctx.createGain(); mg.gain.value=vel*0.72; mg.connect(ctx.destination);
+    const mg=ctx.createGain(); mg.gain.value=vel*0.72*chordVol; mg.connect(ctx.destination);
     playSF2Note(ctx,midiNote,t,dur,mg);
   } else {
     const mg=ctx.createGain(); mg.connect(ctx.destination);
-    mg.gain.setValueAtTime(0,t); mg.gain.linearRampToValueAtTime(vel*0.22,t+0.012);
-    mg.gain.exponentialRampToValueAtTime(vel*0.08,t+dur*0.5); mg.gain.exponentialRampToValueAtTime(0.001,t+dur);
+    const v=vel*chordVol;
+    mg.gain.setValueAtTime(0,t); mg.gain.linearRampToValueAtTime(v*0.22,t+0.012);
+    mg.gain.exponentialRampToValueAtTime(v*0.08,t+dur*0.5); mg.gain.exponentialRampToValueAtTime(0.001,t+dur);
     const f=m2f(midiNote);
     [1,2,3].forEach((h,hi)=>{
       const o=ctx.createOscillator(),g=ctx.createGain();
@@ -2632,15 +2846,59 @@ function playDrumNote(ctx, midiNote, t, vol){
   playSynthDrum(ctx, midiNote, t);
 }
 
-function scheduleDrumStep(ctx, step16, t){
-  if(!$('drumEnabled').checked) return;
-  const vol=(parseInt($('drumVolume').value)/100)*0.9;
+// Per-track volumes (0-100) and mute state
+const drumTrackVol=  [80, 80, 70, 65];  // BD, SN, HH, OHH
+const drumTrackMuted=[false,false,false,false];
+
+function buildDrumMixerStrips(){
+  const COLORS=['bd','sn','hh','ohh'];
+  const LABEL_COLORS=['#c084fc','#fb923c','#38bdf8','#34d399'];
+  const wrap=$('drumMixerStrips');
+  wrap.innerHTML='';
   DRUM_TRACKS.forEach((tr,ti)=>{
-    if(drumGrid[ti][step16]) playDrumNote(ctx, tr.note, t, vol);
+    const strip=document.createElement('div');
+    strip.className='mix-strip';
+    strip.dataset.color=COLORS[ti];
+    strip.innerHTML=`
+      <div class="mix-strip-label" style="color:${LABEL_COLORS[ti]}">
+        ${tr.label}<span class="mix-strip-sub">${tr.sub}</span>
+      </div>
+      <div class="fader-wrap">
+        <input type="range" class="mix-fader" id="dmv-${ti}"
+               min="0" max="100" value="${drumTrackVol[ti]}"
+               aria-label="${tr.label} Lautstärke">
+      </div>
+      <span class="mix-val" id="dmvv-${ti}">${drumTrackVol[ti]}</span>
+      <button class="mix-mute${drumTrackMuted[ti]?' muted':''}" id="dmm-${ti}"
+              onclick="toggleDrumMute(${ti})" aria-label="${tr.label} Mute" title="Mute">M</button>
+    `;
+    wrap.appendChild(strip);
+    strip.querySelector(`#dmv-${ti}`).addEventListener('input', e=>{
+      drumTrackVol[ti]=parseInt(e.target.value);
+      $(`dmvv-${ti}`).textContent=drumTrackVol[ti];
+    });
   });
 }
 
-$('drumVolume').addEventListener('input',()=>$('drumVolVal').textContent=$('drumVolume').value+'%');
+function toggleDrumMute(ti){
+  drumTrackMuted[ti]=!drumTrackMuted[ti];
+  const btn=$(`dmm-${ti}`);
+  if(btn) btn.classList.toggle('muted', drumTrackMuted[ti]);
+}
+
+function scheduleDrumStep(ctx, step16, t){
+  if(!$('drumEnabled').checked) return;
+  const master=(parseInt($('drumVolume').value)/100)*0.9;
+  DRUM_TRACKS.forEach((tr,ti)=>{
+    if(drumTrackMuted[ti]) return;
+    if(!drumGrid[ti][step16]) return;
+    const vol=master*(drumTrackVol[ti]/100);
+    playDrumNote(ctx, tr.note, t, vol);
+  });
+}
+
+$('drumVolume').addEventListener('input',()=>$('drumVolVal').textContent=$('drumVolume').value);
+$('chordVolume').addEventListener('input',()=>$('chordVolVal').textContent=$('chordVolume').value+'%');
 $('sustainSlider').addEventListener('input',()=>$('sustainVal').textContent=$('sustainSlider').value+'%');
 
 /* ── Drum-only standalone playback loop ───────────────────────── */
@@ -2684,11 +2942,15 @@ styleSelect.addEventListener('change',()=>{buildProgSelect();updateProgression()
 progSelect.addEventListener('change',()=>{stopPlayback();updateProgression();});
 $('presetSelect').addEventListener('change',()=>{_noteMap=null;sampleCache={};});
 
+// Bootstrap: build with inline defaults first, then load external data files
 buildRhythmSelect();
 buildProgSelect();
 updateProgression();
 buildDrumMatrix();
 buildDrumPresetSelect();
+buildDrumMixerStrips();
+// Load external data files (replaces inline data if successful)
+loadAllDataFiles();
 
 </script>
 </body>
