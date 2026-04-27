@@ -636,7 +636,7 @@ input[type=range]{
 <body>
 <a href="#main-controls" class="skip-link">Zum Hauptbereich springen</a>
 <h1>Chord Progression Generator</h1>
-<p class="subtitle" role="doc-subtitle">Pop · Rock · Jazz · soundfonts SF2 · Stimmführung · Akkord anklicken zum Editieren</p>
+<p class="subtitle" role="doc-subtitle">Pop · Rock · Jazz · SoundFont SF2 · Stimmführung · Akkord anklicken zum Editieren</p>
 <p id="dataLoadStatus" style="text-align:center;font-size:.82rem;min-height:18px;margin-bottom:6px"></p>
 
 <!-- MAIN CONTROLS -->
@@ -656,16 +656,16 @@ input[type=range]{
   <hr class="divider">
 
   <!-- SF2 -->
-  <div class="sec">soundfonts (SF2)</div>
+  <div class="sec">SoundFont (SF2)</div>
   <div class="sf2-row">
     <div class="cg" style="flex:2;min-width:200px">
       <label>Dateiname im Ordner <code style="color:#a78bfa;font-size:.75rem">/soundfonts/</code></label>
-      <input type="text" id="sf2Filename" value="GM_Roland.sf2" placeholder="FluidR3_GM_GS.sf2">
+      <input type="text" id="sf2Filename" value="GM_Roland.sf2" placeholder="GM_Roland.sf2">
     </div>
     <button class="btn-sf2" id="btnLoad" onclick="loadSF2()">&#8659; Laden</button>
   </div>
   <div class="prog-bar" id="pgBar"><div class="prog-fill" id="pgFill" style="width:0%"></div></div>
-  <div class="sf2-status" id="sf2Status">Kein Soundfont geladen — Synthesizer wird verwendet.</div>
+  <div class="sf2-status" id="sf2Status">Kein SoundFont geladen — Synthesizer wird verwendet.</div>
 
   <!-- Preset selector (hidden until loaded) -->
   <div id="presetRow" style="display:none;margin-top:10px">
@@ -694,7 +694,7 @@ input[type=range]{
   </div>
 
   <div class="sf2-hint">
-    <strong>Einrichtung:</strong> Lege deine <code>.sf2</code>-Datei in den Ordner <code>soundfonts/</code> relativ zur HTML-Datei.
+    <strong>Einrichtung:</strong> Lege deine <code>.sf2</code>-Datei in den Ordner <code>soundfont/</code> relativ zur HTML-Datei.
     Starte einen lokalen Webserver (<code>npx serve .</code> oder VS Code Live Server), damit der Browser die Datei laden kann.
     Empfohlen: <code>GM_Roland.sf2</code>, <code>GeneralUser_GS.sf2</code>, <code>MuseScore_General.sf2</code>
   </div>
@@ -1266,8 +1266,8 @@ function getNoteEntry(ctx, midiNote){
 }
 
 function playSF2Note(ctx, midiNote, startTime, duration, masterGain){
-  const octShift=parseInt($('octaveSelect').value||'0');
-  const note=Math.max(0,Math.min(127,midiNote+octShift*12));
+  // midiNote already contains the octave shift (applied at voice-leading time)
+  const note=Math.max(0,Math.min(127, midiNote));
   const entry=getNoteEntry(ctx,note);
   if(!entry) return;
 
@@ -1318,20 +1318,27 @@ function playSF2Note(ctx, midiNote, startTime, duration, masterGain){
    pitch classes (as semitone offsets from root), find the voicing
    (inversion + octave placement) that minimises total voice movement.
 ═══════════════════════════════════════════════════════════════ */
-const OCTAVE_BASE=60; // C4 — centre of keyboard range
+const OCTAVE_BASE=60; // C4 — centre of keyboard range at octave shift 0
+
+// Returns the current octave shift in semitones (from the UI selector)
+function getOctaveShift(){
+  const el=$('octaveSelect');
+  return el ? parseInt(el.value||'0')*12 : 0;
+}
 
 function voiceChord(semis, noteIdx, prevVoiced){
-  /* Build candidate notes: root MIDI = octave*12 + noteIdx (mod 12)
-     We allow octaves 2..6 (MIDI 24..83) for each chord tone */
+  const shift = getOctaveShift();
+  const base  = OCTAVE_BASE + shift;   // e.g. 72 at +1 octave
+
   const pcs=semis.map(s=>((noteIdx+s)%12+12)%12); // pitch classes
 
   if(!prevVoiced||prevVoiced.length===0){
-    // First chord: close position around C4
-    const root=OCTAVE_BASE+noteIdx;
-    return semis.map((s,i)=>{
-      let n=root+s;
-      while(n>OCTAVE_BASE+12) n-=12;
-      while(n<OCTAVE_BASE-5)  n+=12;
+    // First chord: close position around shifted base
+    const root = base + (noteIdx % 12);
+    return semis.map((s)=>{
+      let n = root + s;
+      while(n > base + 12) n -= 12;
+      while(n < base - 5)  n += 12;
       return n;
     });
   }
@@ -1375,8 +1382,8 @@ function voiceChord(semis, noteIdx, prevVoiced){
     // Sort voices ascending (standard notation order)
     voiced.sort((a,b)=>a-b);
 
-    // Ensure voices are within reasonable range (40–88 = E2–E6)
-    let valid=voiced.every(n=>n>=36&&n<=88);
+    // Ensure voices are within reasonable range shifted by octave
+    let valid=voiced.every(n=>n>=(36+shift)&&n<=(88+shift));
     if(!valid) continue;
 
     // Cost = sum of voice movements squared (penalise large leaps)
@@ -1396,36 +1403,86 @@ function voiceChord(semis, noteIdx, prevVoiced){
     if(cost<bestCost){ bestCost=cost; bestVoicing=voiced.slice(); }
   }
 
-  return bestVoicing || semis.map((s,i)=>OCTAVE_BASE+noteIdx+s);
+  return bestVoicing || semis.map(s=>base+(noteIdx%12)+s);
 }
 
-// Slash chord: force a specific bass pitch class as lowest note
+// Slash chord: force a specific bass pitch class as lowest note,
+// then place upper voices in a natural range above it.
 function voiceChordWithSlash(semis, noteIdx, prevVoiced, slashBassIdx){
-  const voiced=voiceChord(semis,noteIdx,prevVoiced);
-  if(slashBassIdx==null) return voiced;
-  // Find or add the slash bass as the lowest note (octave below the voiced chord)
-  const lowestVoiced=voiced[0];
-  // Pick bass octave just below the lowest chord voice
-  let bassNote=slashBassIdx;
-  while(bassNote>=lowestVoiced) bassNote-=12;
-  while(bassNote<28) bassNote+=12; // keep above E1
-  // Remove any existing note with same pitch class to avoid doubling
-  const upper=voiced.filter(n=>n%12!==slashBassIdx%12);
-  return [bassNote,...upper].sort((a,b)=>a-b);
+  if(slashBassIdx==null) return voiceChord(semis,noteIdx,prevVoiced);
+
+  const shift = getOctaveShift();
+  const pc=((slashBassIdx%12)+12)%12;
+
+  // ── 1. Place the bass note in the shifted bass register ───────────────────
+  // Default bass range at shift=0: MIDI 36-47 (C2-B2)
+  // At shift=+12: MIDI 48-59 (C3-B3), at shift=-12: MIDI 24-35 (C1-B1)
+  const bassLo = 36 + shift;
+  const bassHi = 47 + shift;
+  let bassNote = pc;
+  while(bassNote < bassLo) bassNote += 12;
+  while(bassNote > bassHi) bassNote -= 12;
+
+  // Nudge toward previous bass if available
+  if(prevVoiced && prevVoiced.length > 0){
+    const prevBass = prevVoiced[0];
+    let best = bassNote, bestD = Math.abs(bassNote - prevBass);
+    for(const cand of [bassNote-12, bassNote+12]){
+      if(cand >= bassLo-12 && cand <= bassHi+12){
+        const d = Math.abs(cand - prevBass);
+        if(d < bestD){ bestD = d; best = cand; }
+      }
+    }
+    bassNote = best;
+  }
+
+  // ── 2. Build upper voices from remaining chord tones ──────────────────────
+  const bsOffset = ((pc - ((noteIdx%12)+12)%12) + 12) % 12;
+  const upperSemis = semis.filter(s => ((s%12)+12)%12 !== bsOffset);
+  const voicedSemis = upperSemis.length > 0 ? upperSemis : semis;
+
+  const upperCentre = bassNote + 14;
+  const prevUpper = prevVoiced ? prevVoiced.slice(1) : null;
+
+  const upper = voicedSemis.map((s, vi) => {
+    const upc = ((noteIdx + s) % 12 + 12) % 12;
+    const cands = [];
+    for(let oct = 2; oct <= 7; oct++){
+      const n = oct * 12 + upc;
+      if(n > bassNote && n <= bassNote + 26) cands.push(n);
+    }
+    if(cands.length === 0){
+      let n = upc;
+      while(n <= bassNote) n += 12;
+      return n;
+    }
+    const target = (prevUpper && prevUpper[vi] != null)
+      ? prevUpper[vi]
+      : upperCentre + vi * 4;
+    let best = cands[0], bestD = Math.abs(cands[0] - target);
+    for(const c of cands){
+      const d = Math.abs(c - target);
+      if(d < bestD){ bestD = d; best = c; }
+    }
+    return best;
+  });
+
+  upper.sort((a,b)=>a-b);
+  const result = [bassNote, ...upper];
+  return result.map(n => Math.max(12, Math.min(108, n)));
 }
 
 function inversionLabel(semis, voicedMidi, noteIdx){
   if(!voicedMidi||voicedMidi.length===0) return '';
-  const bassPC=voicedMidi[0]%12;
-  const rootPC=((noteIdx)%12+12)%12;
+  const bassPC =((voicedMidi[0]%12)+12)%12;
+  const rootPC =((noteIdx       %12)+12)%12;
   if(bassPC===rootPC) return '';
   const bsOffset=((bassPC-rootPC)+12)%12;
-  const idx=semis.indexOf(bsOffset);
-  if(idx===1) return '1st inv.';
-  if(idx===2) return '2nd inv.';
-  if(idx===3) return '3rd inv.';
-  if(idx>3)   return idx+'th inv.';
-  return '';
+  if(!semis.includes(bsOffset)) return ''; // slash bass not in chord
+  // Name by interval above root
+  const names={3:'3rd inv.(b3)',4:'1st inv.(3)',6:'dim. bass(b5)',
+                7:'2nd inv.(5)',9:'(6)',10:'(b7)',11:'(7)',14:'(9)',17:'(11)',21:'(13)'};
+  return names[bsOffset] || (semis.indexOf(bsOffset)+1)+'th inv.';
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2941,6 +2998,19 @@ modeSelect.addEventListener('change',()=>{buildProgSelect();updateProgression();
 styleSelect.addEventListener('change',()=>{buildProgSelect();updateProgression();});
 progSelect.addEventListener('change',()=>{stopPlayback();updateProgression();});
 $('presetSelect').addEventListener('change',()=>{_noteMap=null;sampleCache={};});
+$('octaveSelect').addEventListener('change',()=>{
+  // Rebuild voicings with new octave — reset prevVoiced chain
+  if(currentChords.length){
+    let prev=null;
+    currentChords=currentChords.map(c=>{
+      const voiced=voiceChordWithSlash(c.semis,c.noteIdx,prev,c.slashBassIdx||null);
+      prev=voiced;
+      const invLbl=c.slashBassIdx!=null?('/'+KS[c.slashBassIdx]):inversionLabel(c.semis,voiced,c.noteIdx);
+      return{...c, voicedMidi:voiced, invLabel:invLbl};
+    });
+    renderChords(currentChords);
+  }
+});
 
 // Bootstrap: build with inline defaults first, then load external data files
 buildRhythmSelect();
