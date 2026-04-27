@@ -1,0 +1,8 @@
+{
+  "_comment": "Liste aller .sf2-Dateien in diesem Ordner. Trage hier alle deine SoundFont-Dateinamen ein.",
+  "_howto": "Beim Klick auf 'Scannen' liest die App diese Datei aus und befüllt das Auswahlmenü automatisch.",
+  "files": [
+    "GM_Roland.sf2",
+    "TimGM6mb.sf2"
+  ]
+}
