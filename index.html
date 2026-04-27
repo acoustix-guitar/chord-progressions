@@ -657,15 +657,36 @@ input[type=range]{
 
   <!-- SF2 -->
   <div class="sec">SoundFont (SF2)</div>
-  <div class="sf2-row">
-    <div class="cg" style="flex:2;min-width:200px">
-      <label>Dateiname im Ordner <code style="color:#a78bfa;font-size:.75rem">/soundfonts/</code></label>
-      <input type="text" id="sf2Filename" value="GM_Roland.sf2" placeholder="GM_Roland.sf2">
+
+  <div class="sf2-row" style="align-items:flex-end;gap:10px">
+    <div class="cg" style="flex:3;min-width:200px">
+      <label>SoundFont auswählen</label>
+      <select id="sf2Select" style="background:#0d0d1c;color:#e0e0f0;border:1.5px solid #353560;border-radius:8px;padding:9px 13px;font-size:1rem;outline:none;width:100%">
+        <option value="">— Bitte zuerst scannen —</option>
+      </select>
     </div>
-    <button class="btn-sf2" id="btnLoad" onclick="loadSF2()">&#8659; Laden</button>
+    <button class="btn-sf2" id="btnScan" onclick="scanSoundfonts()" title="Ordner /soundfonts/ nach .sf2-Dateien durchsuchen"
+            style="white-space:nowrap;display:flex;align-items:center;gap:6px">
+      &#128269; Scannen
+    </button>
+    <button class="btn-sf2" id="btnLoad" onclick="loadSF2()" style="background:#22c55e"
+            title="Gewählten SoundFont laden">
+      &#8659; Laden
+    </button>
   </div>
+
+  <!-- Manual fallback -->
+  <details style="margin-top:8px">
+    <summary style="font-size:.85rem;color:#7070a0;cursor:pointer;user-select:none">&#9998; Dateiname manuell eingeben</summary>
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+      <input type="text" id="sf2Filename" value="FluidR3_GM_GS.sf2" placeholder="dateiname.sf2"
+             style="flex:1;background:#0d0d1c;color:#e0e0f0;border:1.5px solid #353560;border-radius:8px;padding:8px 12px;font-size:.95rem;outline:none">
+      <span style="font-size:.82rem;color:#50508a">in <code style="color:#a78bfa">soundfonts/</code></span>
+    </div>
+  </details>
+
   <div class="prog-bar" id="pgBar"><div class="prog-fill" id="pgFill" style="width:0%"></div></div>
-  <div class="sf2-status" id="sf2Status">Kein SoundFont geladen — Synthesizer wird verwendet.</div>
+  <div class="sf2-status" id="sf2Status">Klicke <strong>Scannen</strong> um verfügbare SoundFonts zu finden, dann <strong>Laden</strong>.</div>
 
   <!-- Preset selector (hidden until loaded) -->
   <div id="presetRow" style="display:none;margin-top:10px">
@@ -694,9 +715,10 @@ input[type=range]{
   </div>
 
   <div class="sf2-hint">
-    <strong>Einrichtung:</strong> Lege deine <code>.sf2</code>-Datei in den Ordner <code>soundfont/</code> relativ zur HTML-Datei.
-    Starte einen lokalen Webserver (<code>npx serve .</code> oder VS Code Live Server), damit der Browser die Datei laden kann.
-    Empfohlen: <code>GM_Roland.sf2</code>, <code>GeneralUser_GS.sf2</code>, <code>MuseScore_General.sf2</code>
+    <strong>Einrichtung:</strong> Lege <code>.sf2</code>-Dateien in den Ordner <code>soundfont/</code> neben der HTML-Datei.
+    Klicke <strong>Scannen</strong> — die App liest <code>soundfont/index.json</code> (falls vorhanden) oder
+    sucht bekannte Dateinamen. Für volle Verzeichnis-Erkennung: erstelle <code>soundfont/index.json</code>
+    (siehe Hinweis-Datei im Ordner). Lokaler Webserver nötig: <code>npx serve .</code>
   </div>
 
   <hr class="divider">
@@ -1163,9 +1185,83 @@ function buildNoteMap(sf2, presetIdx){
   return map;
 }
 
+/* ── SoundFont scanner ────────────────────────────────────────── */
+// Known common SF2 filenames to probe when no index.json exists
+const SF2_KNOWN=[
+  'FluidR3_GM_GS.sf2','FluidR3_GM.sf2','FluidR3_GS.sf2',
+  'GeneralUser_GS.sf2','GeneralUser GS.sf2','GeneralUserGS.sf2',
+  'MuseScore_General.sf2','MuseScore_General.sf3',
+  'TimGM6mb.sf2','SGM-v2.01.sf2','Arachno SoundFont.sf2',
+  'ChoriumRevA.sf2','Chaos.sf2','WeedsGM3.sf2',
+  'soundfont.sf2','default.sf2','gm.sf2','GM.sf2',
+];
+
+async function scanSoundfonts(){
+  const btn=$('btnScan'), sel=$('sf2Select'), st=$('sf2Status');
+  btn.disabled=true; btn.textContent='Suche…';
+  st.className='sf2-status busy'; st.textContent='Scanne Ordner soundfont/ …';
+
+  const found=[];
+
+  // 1. Try index.json first (authoritative list)
+  try{
+    const r=await fetch('soundfont/index.json');
+    if(r.ok){
+      const idx=await r.json();
+      const list=Array.isArray(idx)?idx:(idx.files||idx.soundfonts||Object.keys(idx));
+      list.forEach(f=>{ if(typeof f==='string'&&f.match(/\.sf[23]$/i)) found.push(f); });
+    }
+  }catch(e){}
+
+  // 2. Probe known filenames (HEAD request — fast, no body download)
+  if(found.length===0){
+    const probes=SF2_KNOWN.map(async name=>{
+      try{
+        const r=await fetch('soundfont/'+name,{method:'HEAD'});
+        if(r.ok) found.push(name);
+      }catch(e){}
+    });
+    await Promise.all(probes);
+  }
+
+  // 3. Also try the manually-entered name if set
+  const manual=$('sf2Filename').value.trim();
+  if(manual && !found.includes(manual)){
+    try{
+      const r=await fetch('soundfont/'+manual,{method:'HEAD'});
+      if(r.ok) found.push(manual);
+    }catch(e){}
+  }
+
+  btn.disabled=false; btn.innerHTML='&#128269; Scannen';
+
+  if(found.length===0){
+    st.className='sf2-status err';
+    st.textContent='Keine .sf2-Dateien gefunden. Erstelle soundfont/index.json oder gib den Dateinamen manuell ein.';
+    return;
+  }
+
+  // Populate dropdown, preserve current selection if still available
+  const prev=sel.value;
+  sel.innerHTML='';
+  found.sort((a,b)=>a.localeCompare(b));
+  found.forEach(f=>{
+    const o=document.createElement('option'); o.value=f; o.textContent=f; sel.appendChild(o);
+  });
+  if(found.includes(prev)) sel.value=prev;
+
+  st.className='sf2-status ok';
+  st.textContent=`${found.length} SoundFont${found.length>1?'s':''} gefunden. Bitte einen auswählen und laden.`;
+}
+
 async function loadSF2(){
-  const fname=$('sf2Filename').value.trim();
-  const path='soundfonts/'+fname;
+  // Determine filename: dropdown has priority, fallback to manual input
+  const selVal=$('sf2Select').value.trim();
+  const manual=$('sf2Filename').value.trim();
+  const fname = selVal || manual;
+  if(!fname){ alert('Bitte zuerst einen SoundFont auswählen oder scannen.'); return; }
+
+  const path='soundfont/'+fname;
   const statusEl=$('sf2Status'), pgBar=$('pgBar'), pgFill=$('pgFill'), btn=$('btnLoad');
   btn.disabled=true;
   statusEl.className='sf2-status busy';
@@ -2295,27 +2391,129 @@ function varLen(v){const r=[];r.push(v&0x7F);v>>=7;while(v>0){r.unshift((v&0x7F)
 
 function exportMidi(){
   if(!currentChords.length){alert('Bitte erst eine Akkordfolge laden.');return;}
-  const bpm=parseInt(tempoSlider.value), us=Math.round(60000000/bpm), tpb=480, ct=tpb*2, vel=78;
-  let evs=[], tick=0;
+
+  const bpm   = parseInt(tempoSlider.value);
+  const us    = Math.round(60000000/bpm);
+  const tpb   = 480;          // ticks per beat
+  const meter = parseInt($('meterSelect').value)||4;
+  // One chord = one measure = meter beats
+  const ticksPerMeasure = tpb * meter;
+  // One 16th note in ticks: divide measure by 16 steps
+  const ticksPer16 = ticksPerMeasure / 16;
+  const totalMeasures = currentChords.length;
+  const totalTicks    = ticksPerMeasure * totalMeasures;
+  const velChord = 78;
+  const masterDrumVol = parseInt($('drumVolume').value) / 100;
+
+  // ── Helper: build raw track bytes from sorted event list ───────────────────
+  // events: [{tick, status, data:[...]}]
+  function buildTrackBytes(events){
+    // Sort: by tick, then note-off before note-on at same tick
+    events.sort((a,b)=>{
+      if(a.tick!==b.tick) return a.tick-b.tick;
+      const aOff=(a.status&0xF0)===0x80?0:1;
+      const bOff=(b.status&0xF0)===0x80?0:1;
+      return aOff-bOff;
+    });
+    const raw=[];
+    let prev=0;
+    events.forEach(ev=>{
+      const d=ev.tick-prev; prev=ev.tick;
+      raw.push(...varLen(d), ev.status, ...ev.data);
+    });
+    return raw;
+  }
+
+  function makeTrackChunk(trackBytes){
+    const tl=trackBytes.length;
+    return [0x4D,0x54,0x72,0x6B,
+            (tl>>24)&0xFF,(tl>>16)&0xFF,(tl>>8)&0xFF,tl&0xFF,
+            ...trackBytes];
+  }
+
+  // ── Track 0: Tempo + Time Signature ────────────────────────────────────────
+  const track0=[
+    // Tempo
+    0x00,0xFF,0x51,0x03,(us>>16)&0xFF,(us>>8)&0xFF,us&0xFF,
+    // Time signature (meter/4 or 3/4 or 6/8)
+    0x00,0xFF,0x58,0x04,
+      meter,                // numerator
+      (meter===6?3:2),      // denominator as power of 2 (2=quarter,3=eighth)
+      24,6,                 // clocks per click, 32nd notes per quarter
+    // Track name
+    0x00,0xFF,0x03,0x05,...Array.from('Tempo').map(c=>c.charCodeAt(0)),
+    // EOT
+    0x00,0xFF,0x2F,0x00
+  ];
+
+  // ── Track 1: Chord Progression (channel 0) ─────────────────────────────────
+  const chordEvents=[];
+  let tick=0;
   currentChords.forEach(c=>{
-    c.voicedMidi.forEach(n=>{evs.push({tick,type:'on',note:n});evs.push({tick:tick+ct-5,type:'off',note:n});});
-    tick+=ct;
+    c.voicedMidi.forEach(n=>{
+      const noteOn ={tick,               status:0x90, data:[n, velChord]};
+      const noteOff={tick:tick+ticksPerMeasure-5, status:0x80, data:[n, 0]};
+      chordEvents.push(noteOn, noteOff);
+    });
+    tick+=ticksPerMeasure;
   });
-  evs.sort((a,b)=>a.tick-b.tick||(a.type==='off'?-1:1));
-  let raw=[], prev=0;
-  evs.forEach(ev=>{const d=ev.tick-prev;prev=ev.tick;raw.push(...varLen(d),ev.type==='on'?0x90:0x80,ev.note,ev.type==='on'?vel:0);});
-  const tmpo=[0x00,0xFF,0x51,0x03,(us>>16)&0xFF,(us>>8)&0xFF,us&0xFF];
-  const eot=[0x00,0xFF,0x2F,0x00];
-  const td=[...tmpo,...raw,...eot], tl=td.length;
-  const hdr=[0x4D,0x54,0x68,0x64,0,0,0,6,0,0,0,1,(tpb>>8)&0xFF,tpb&0xFF];
-  const th=[0x4D,0x54,0x72,0x6B,(tl>>24)&0xFF,(tl>>16)&0xFF,(tl>>8)&0xFF,tl&0xFF];
-  const midi=new Uint8Array([...hdr,...th,...td]);
+  const track1Raw=[
+    // Track name: "Chords"
+    0x00,0xFF,0x03,0x06,...Array.from('Chords').map(c=>c.charCodeAt(0)),
+    ...buildTrackBytes(chordEvents),
+    0x00,0xFF,0x2F,0x00
+  ];
+
+  // ── Track 2: Drums (channel 9 = GM percussion) ─────────────────────────────
+  const drumEvents=[];
+  for(let m=0;m<totalMeasures;m++){
+    for(let s=0;s<DRUM_STEPS;s++){
+      const stepTick = m*ticksPerMeasure + Math.round(s*ticksPer16);
+      DRUM_TRACKS.forEach((tr,ti)=>{
+        if(drumTrackMuted[ti]) return;
+        if(!drumGrid[ti][s]) return;
+        const v = Math.round(masterDrumVol * (drumTrackVol[ti]/100) * 100);
+        const vel = Math.max(1, Math.min(127, v));
+        // Channel 9 (0-indexed) = 0x99 note-on, 0x89 note-off
+        drumEvents.push(
+          {tick: stepTick,       status:0x99, data:[tr.note, vel]},
+          {tick: stepTick+Math.round(ticksPer16*0.9), status:0x89, data:[tr.note, 0]}
+        );
+      });
+    }
+  }
+  const track2Raw=[
+    // Track name: "Drums"
+    0x00,0xFF,0x03,0x05,...Array.from('Drums').map(c=>c.charCodeAt(0)),
+    // Channel 9 program: standard kit (GM program 0 on ch9 = Standard Kit)
+    0x00,0xC9,0x00,
+    ...buildTrackBytes(drumEvents),
+    0x00,0xFF,0x2F,0x00
+  ];
+
+  // ── Assemble Format 1 MIDI file (3 tracks) ─────────────────────────────────
+  // Header: format=1, nTracks=3, tpb
+  const header=[
+    0x4D,0x54,0x68,0x64,  // "MThd"
+    0x00,0x00,0x00,0x06,  // chunk length = 6
+    0x00,0x01,            // format 1
+    0x00,0x03,            // 3 tracks
+    (tpb>>8)&0xFF, tpb&0xFF
+  ];
+
+  const midi=new Uint8Array([
+    ...header,
+    ...makeTrackChunk(track0),
+    ...makeTrackChunk(track1Raw),
+    ...makeTrackChunk(track2Raw),
+  ]);
+
   const url=URL.createObjectURL(new Blob([midi],{type:'audio/midi'}));
-  const a=document.createElement('a');a.href=url;
+  const a=document.createElement('a'); a.href=url;
   a.download=`ChordProg_${KEYS[parseInt(keySelect.value)].replace('/','_')}_${bpm}BPM.mid`;
   a.click(); URL.revokeObjectURL(url);
-  statusBar.textContent='MIDI exportiert ✓'; statusBar.className='status play';
-  setTimeout(()=>{statusBar.textContent='Bereit';statusBar.className='status';},2200);
+  statusBar.textContent='MIDI exportiert ✓ (Akkorde + Drums)'; statusBar.className='status play';
+  setTimeout(()=>{statusBar.textContent='Bereit';statusBar.className='status';},2500);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -3019,6 +3217,19 @@ updateProgression();
 buildDrumMatrix();
 buildDrumPresetSelect();
 buildDrumMixerStrips();
+// Auto-scan soundfonts on load (non-blocking)
+scanSoundfonts().catch(()=>{});
+// If user types a manual filename, add it as an option in the select
+$('sf2Filename').addEventListener('change',()=>{
+  const v=$('sf2Filename').value.trim();
+  if(!v) return;
+  const sel=$('sf2Select');
+  if(![...sel.options].some(o=>o.value===v)){
+    const o=document.createElement('option'); o.value=v; o.textContent=v+'  (manuell)';
+    sel.appendChild(o);
+  }
+  sel.value=v;
+});
 // Load external data files (replaces inline data if successful)
 loadAllDataFiles();
 
