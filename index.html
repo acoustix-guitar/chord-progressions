@@ -681,7 +681,7 @@ input[type=range]{
     <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
       <input type="text" id="sf2Filename" value="FluidR3_GM_GS.sf2" placeholder="dateiname.sf2"
              style="flex:1;background:#0d0d1c;color:#e0e0f0;border:1.5px solid #353560;border-radius:8px;padding:8px 12px;font-size:.95rem;outline:none">
-      <span style="font-size:.82rem;color:#50508a">in <code style="color:#a78bfa">soundfonts/</code></span>
+      <span style="font-size:.82rem;color:#50508a">in <code style="color:#a78bfa">soundfont/</code></span>
     </div>
   </details>
 
@@ -717,7 +717,7 @@ input[type=range]{
   <div class="sf2-hint">
     <strong>Einrichtung:</strong> Lege <code>.sf2</code>-Dateien in den Ordner <code>soundfonts/</code> neben der HTML-Datei.
     Klicke <strong>Scannen</strong> — die App liest <code>soundfonts/index.json</code> (falls vorhanden) oder
-    sucht bekannte Dateinamen. Für volle Verzeichnis-Erkennung: erstelle <code>soundfonts/index.json</code>
+    sucht bekannte Dateinamen. Für volle Verzeichnis-Erkennung: erstelle <code>soundfont/index.json</code>
     (siehe Hinweis-Datei im Ordner). Lokaler Webserver nötig: <code>npx serve .</code>
   </div>
 
@@ -1198,60 +1198,56 @@ const SF2_KNOWN=[
 
 async function scanSoundfonts(){
   const btn=$('btnScan'), sel=$('sf2Select'), st=$('sf2Status');
-  btn.disabled=true; btn.textContent='Suche…';
-  st.className='sf2-status busy'; st.textContent='Scanne Ordner soundfonts/ …';
+  btn.disabled=true; btn.innerHTML='&#8987; Suche…';
+  st.className='sf2-status busy'; st.textContent='Scanne soundfonts/ …';
 
-  const found=[];
+  const found=new Set();
 
-  // 1. Try index.json first (authoritative list)
+  // 1. Always try index.json — add whatever is listed there
   try{
-    const r=await fetch('soundfont/index.json');
+    const r=await fetch('soundfonts/index.json?_='+Date.now());
     if(r.ok){
       const idx=await r.json();
       const list=Array.isArray(idx)?idx:(idx.files||idx.soundfonts||Object.keys(idx));
-      list.forEach(f=>{ if(typeof f==='string'&&f.match(/\.sf[23]$/i)) found.push(f); });
+      list.forEach(f=>{ if(typeof f==='string'&&f.match(/\.sf[23]$/i)) found.add(f.trim()); });
     }
   }catch(e){}
 
-  // 2. Probe known filenames (HEAD request — fast, no body download)
-  if(found.length===0){
-    const probes=SF2_KNOWN.map(async name=>{
-      try{
-        const r=await fetch('soundfonts/'+name,{method:'HEAD'});
-        if(r.ok) found.push(name);
-      }catch(e){}
-    });
-    await Promise.all(probes);
-  }
-
-  // 3. Also try the manually-entered name if set
-  const manual=$('sf2Filename').value.trim();
-  if(manual && !found.includes(manual)){
+  // 2. Always probe all known filenames (HEAD = no body download, very fast)
+  await Promise.all(SF2_KNOWN.map(async name=>{
     try{
-      const r=await fetch('soundfonts/'+manual,{method:'HEAD'});
-      if(r.ok) found.push(manual);
+      const r=await fetch('soundfont/'+name,{method:'HEAD',cache:'no-store'});
+      if(r.ok) found.add(name);
+    }catch(e){}
+  }));
+
+  // 3. Also probe the manually-entered filename if not already in set
+  const manual=$('sf2Filename').value.trim();
+  if(manual && !found.has(manual)){
+    try{
+      const r=await fetch('soundfonts/'+manual,{method:'HEAD',cache:'no-store'});
+      if(r.ok) found.add(manual);
     }catch(e){}
   }
 
   btn.disabled=false; btn.innerHTML='&#128269; Scannen';
 
-  if(found.length===0){
+  if(found.size===0){
     st.className='sf2-status err';
-    st.textContent='Keine .sf2-Dateien gefunden. Erstelle soundfont/index.json oder gib den Dateinamen manuell ein.';
+    st.textContent='Keine .sf2-Dateien gefunden. Trage die Dateinamen in soundfonts/index.json ein.';
     return;
   }
 
-  // Populate dropdown, preserve current selection if still available
+  // Populate dropdown — preserve current selection
   const prev=sel.value;
   sel.innerHTML='';
-  found.sort((a,b)=>a.localeCompare(b));
-  found.forEach(f=>{
+  [...found].sort((a,b)=>a.localeCompare(b)).forEach(f=>{
     const o=document.createElement('option'); o.value=f; o.textContent=f; sel.appendChild(o);
   });
-  if(found.includes(prev)) sel.value=prev;
+  if(prev && found.has(prev)) sel.value=prev;
 
   st.className='sf2-status ok';
-  st.textContent=`${found.length} SoundFont${found.length>1?'s':''} gefunden. Bitte einen auswählen und laden.`;
+  st.textContent=`${found.size} SoundFont${found.size>1?'s':''} gefunden — auswählen und laden.`;
 }
 
 async function loadSF2(){
