@@ -715,9 +715,9 @@ input[type=range]{
   </div>
 
   <div class="sf2-hint">
-    <strong>Einrichtung:</strong> Lege <code>.sf2</code>-Dateien in den Ordner <code>soundfont/</code> neben der HTML-Datei.
-    Klicke <strong>Scannen</strong> — die App liest <code>soundfont/index.json</code> (falls vorhanden) oder
-    sucht bekannte Dateinamen. Für volle Verzeichnis-Erkennung: erstelle <code>soundfont/index.json</code>
+    <strong>Einrichtung:</strong> Lege <code>.sf2</code>-Dateien in den Ordner <code>soundfonts/</code> neben der HTML-Datei.
+    Klicke <strong>Scannen</strong> — die App liest <code>soundfonts/index.json</code> (falls vorhanden) oder
+    sucht bekannte Dateinamen. Für volle Verzeichnis-Erkennung: erstelle <code>soundfonts/index.json</code>
     (siehe Hinweis-Datei im Ordner). Lokaler Webserver nötig: <code>npx serve .</code>
   </div>
 
@@ -1199,7 +1199,7 @@ const SF2_KNOWN=[
 async function scanSoundfonts(){
   const btn=$('btnScan'), sel=$('sf2Select'), st=$('sf2Status');
   btn.disabled=true; btn.textContent='Suche…';
-  st.className='sf2-status busy'; st.textContent='Scanne Ordner soundfont/ …';
+  st.className='sf2-status busy'; st.textContent='Scanne Ordner soundfonts/ …';
 
   const found=[];
 
@@ -1217,7 +1217,7 @@ async function scanSoundfonts(){
   if(found.length===0){
     const probes=SF2_KNOWN.map(async name=>{
       try{
-        const r=await fetch('soundfont/'+name,{method:'HEAD'});
+        const r=await fetch('soundfonts/'+name,{method:'HEAD'});
         if(r.ok) found.push(name);
       }catch(e){}
     });
@@ -1228,7 +1228,7 @@ async function scanSoundfonts(){
   const manual=$('sf2Filename').value.trim();
   if(manual && !found.includes(manual)){
     try{
-      const r=await fetch('soundfont/'+manual,{method:'HEAD'});
+      const r=await fetch('soundfonts/'+manual,{method:'HEAD'});
       if(r.ok) found.push(manual);
     }catch(e){}
   }
@@ -1261,7 +1261,7 @@ async function loadSF2(){
   const fname = selVal || manual;
   if(!fname){ alert('Bitte zuerst einen SoundFont auswählen oder scannen.'); return; }
 
-  const path='soundfont/'+fname;
+  const path='soundfonts/'+fname;
   const statusEl=$('sf2Status'), pgBar=$('pgBar'), pgFill=$('pgFill'), btn=$('btnLoad');
   btn.disabled=true;
   statusEl.className='sf2-status busy';
